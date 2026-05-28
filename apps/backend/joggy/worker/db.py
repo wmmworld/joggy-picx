@@ -27,7 +27,13 @@ async def worker_db_session() -> AsyncGenerator[AsyncSession, None]:
     Creates a fresh engine per call — safe for forked worker processes.
     Auto-commits on success, rolls back on exception.
     """
-    engine = create_async_engine(get_settings().database_url, echo=False)
+    engine = create_async_engine(
+        get_settings().database_url,
+        echo=False,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,  # Detect stale connections (Supabase idle timeout)
+    )
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session:
             try:
