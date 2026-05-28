@@ -22,6 +22,9 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 
 ## [Unreleased]
 
+### Infra
+- [Claude] Task 2: pytest-asyncio + test package structure — เพิ่ม `pytest-asyncio>=0.23.0,<1.0.0` ใน dev dependencies + ตั้ง `[tool.pytest.ini_options]` with `asyncio_mode = "auto"` + `testpaths = ["tests"]` + สร้าง `apps/backend/tests/__init__.py` + `apps/backend/tests/worker/__init__.py` (commit: 88ff19f)
+
 ### Fixed
 - [Claude] `apps/backend/joggy/api/internal.py` — `revoke_partner_api_key`: `func.now()` → `datetime.now(timezone.utc)` (SQL expression ไม่สามารถ assign ให้ ORM attribute ตรงๆ ได้); เพิ่ม `timezone` ใน imports (2026-05-28)
 - [Claude] `apps/backend/joggy/api/public.py` — `request_erasure`: uncomment `claims: PartnerKeyClaims = Depends(verify_partner_api_key)` ที่ถูก Antigravity comment out → ปิดช่องโหว่ erasure endpoint ไม่มี auth; เพิ่ม `erasure:write` scope check ในตัว handler (2026-05-28)

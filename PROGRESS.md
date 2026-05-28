@@ -4,7 +4,7 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-05-28
+วันที่อัปเดตล่าสุด: 2026-05-29
 ผู้อัปเดตล่าสุด: Claude (Tech Lead)
 
 ---
@@ -42,6 +42,7 @@ Milestone Day 4 (✅ เสร็จแล้ว):
 - [x] Claude review Phase 2 Day 4 — แก้บัก 7 จุดใน Codex/Antigravity/Cursor output
 
 Milestone Day 5 (ถัดไป):
+- [x] pytest-asyncio + test package structure (Claude)
 - [ ] DELETE /erasure full implementation — ErasureRequest row + RQ job (Claude/Antigravity)
 - [ ] Event create/edit UI (Cursor — admin only)
 - [ ] Manual review queue UI skeleton (Cursor)
@@ -143,6 +144,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-05-29 (Task 2 — pytest-asyncio setup)
+- [Claude] Task 2: pytest-asyncio + test package structure — เพิ่ม pytest-asyncio ใน dev dependencies + ตั้ง asyncio_mode="auto" + สร้าง tests/__init__.py + tests/worker/__init__.py
 
 ### 2026-05-28 (Phase 2 Day 4 — Ingest + Public + Internal API + Review)
 - [Claude] Review Phase 2 Day 4 output — แก้บัก 7 จุดใน 6 ไฟล์ (ดูรายละเอียดใน CHANGELOG.md)
