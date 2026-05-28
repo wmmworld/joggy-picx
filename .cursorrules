@@ -1,0 +1,115 @@
+# .cursorrules — Cursor Rules สำหรับโปรเจก Joggy-PicX
+# กฎเหล่านี้ Cursor ต้องอ่านอัตโนมัติทุก session
+# Source of Truth ฉบับเต็มอยู่ที่ AGENTS.md — ไฟล์นี้คือสรุปกฎที่ใช้บ่อยที่สุด
+
+# ============================================================
+# Project Context
+# ============================================================
+- Project: Joggy-PicX — ระบบถ่ายรูปนักวิ่งมาราธอนอัตโนมัติ
+- Stack: FastAPI (Python) + Next.js + Supabase + Cloudflare R2 + Hetzner CPX11 + Raspberry Pi 5
+- Cursor's Role: Frontend Specialist (Next.js dashboard, Mobile-responsive UI)
+- ทำงานร่วมกับ AI: Claude Code (Tech Lead), Codex (VP Eng), Antigravity (Flex)
+- ดู [AGENTS.md] / [PROGRESS.md] / [DECISIONS.md] / [ARCHITECTURE.md] ก่อนเริ่มงาน
+
+# ============================================================
+# Language Policy
+# ============================================================
+- เอกสารทั้งหมด (.md): ภาษาไทย
+- Code / Identifier / File name: อังกฤษ
+- Inline comment: ไทย (TODO/FIXME/NOTE อังกฤษได้)
+- Commit message: อังกฤษ — Conventional Commits format
+- Error message ให้ผู้ใช้: ไทย
+- Log message ภายในระบบ: อังกฤษ
+- สื่อสารกับ CEO: ไทย ยกเว้น code/tech terms
+
+# ============================================================
+# Before Writing Code (บังคับ)
+# ============================================================
+1. อ่าน PROGRESS.md → รู้สถานะปัจจุบัน + active handoff
+2. อ่าน DECISIONS.md → รู้บริบทการตัดสินใจ
+3. อ่าน ARCHITECTURE.md → ยืนยัน design
+4. ดูตาราง Active Tasks → ป้องกันชนงานกับ AI ตัวอื่น
+5. วิเคราะห์ architecture ปัจจุบันก่อน — ห้ามเดา
+6. อธิบายว่าจะแก้อะไร ทำไม ผลกระทบคืออะไร — ก่อนเขียน
+7. ถ้าจะเปลี่ยน API contract → ต้องผ่าน Claude (Tech Lead) ก่อน
+
+# ============================================================
+# After Writing Code (บังคับ)
+# ============================================================
+1. สรุปสิ่งที่เปลี่ยนเป็นภาษาไทยให้ CEO
+2. แจ้งไฟล์ที่แก้ไขทั้งหมด (relative path)
+3. แจ้งผลกระทบ + performance impact
+4. อัปเดต PROGRESS.md ทันที — ห้ามค้าง
+5. อัปเดต CHANGELOG.md ทันที
+6. ใส่คอมเม้นต์ระบุตัวตน:
+   - // Cursor: <คำอธิบาย>     (TS/JS/TSX)
+   - /* Cursor: <คำอธิบาย> */  (CSS)
+   - {/* Cursor: <คำอธิบาย> */} (JSX text)
+
+# ============================================================
+# Production-Grade Code Only
+# ============================================================
+- TypeScript strict mode เปิดตลอด
+- ห้าม any — ถ้าจำเป็นต้อง justify ในคอมเม้นต์
+- Next.js 15: ใช้ App Router (ไม่ใช่ Pages Router) — D-011
+- React: Server Components ก่อน Client Components — เลือกใช้ตาม use case
+- Tailwind CSS v4 เป็นหลัก (config ผ่าน CSS) — ห้าม inline style ยกเว้น dynamic value
+- Component lib: shadcn/ui (copy-paste model — ไม่ใช่ package install)
+- Server state: TanStack Query (cache, infinite scroll, retry) — D-011
+- Client state: Zustand (filter, modal, UI state เล็กๆ) — D-011
+- Form: react-hook-form + zod (schema reuse กับ shared types จาก OpenAPI)
+- Image: next/image + R2 signed URL
+- Component แยกตาม feature ไม่ใช่แยกตาม type
+
+# ============================================================
+# ห้ามเด็ดขาด
+# ============================================================
+- ❌ Dead code (ลบเลย ห้าม comment ทิ้ง)
+- ❌ Duplicate logic (extract เป็น hook/util)
+- ❌ Temporary hack ที่ไม่มี TODO + วันที่จะแก้
+- ❌ ลืม comment // Cursor: ระบุตัวตน
+- ❌ ลืมอัปเดต PROGRESS.md / CHANGELOG.md
+- ❌ Commit .env, credentials
+- ❌ ใช้ console.log() ใน production — ใช้ logger
+- ❌ Skip lint / type check
+- ❌ ใช้ any โดยไม่มีเหตุผล
+- ❌ Inline secret / API key ในโค้ด
+
+# ============================================================
+# Bug Fix ต้องระบุ
+# ============================================================
+- Bug คืออะไร / Root cause / วิธีแก้ / Impact / Regression risk
+
+# ============================================================
+# Refactor ต้องระบุ
+# ============================================================
+- เหตุผล / Architecture ก่อน vs หลัง / Backward compat / Migration path
+
+# ============================================================
+# Handoff Protocol (เมื่อ Cursor ติด limit)
+# ============================================================
+1. อัปเดต PROGRESS.md ส่วน "Active Handoff" — task / file / line / next steps
+2. Commit/stash ด้วย message: [WIP][cursor-handoff] <task>
+3. ระบุให้ AI ตัวไหนรับช่วงต่อ (default: Antigravity สำหรับ frontend)
+
+# ============================================================
+# PDPA & Security (บังคับสำหรับ Frontend)
+# ============================================================
+- หน้า consent ตอนนักวิ่งเข้าระบบครั้งแรก — บังคับ accept ก่อนใช้งาน
+- ห้ามเก็บรูปลง localStorage / sessionStorage
+- API token เก็บใน httpOnly cookie เท่านั้น
+- ทุก form ที่มี PII ต้องมี client-side validation + masking
+- Image upload: validate file type + size ฝั่ง client ก่อนส่ง
+
+# ============================================================
+# Definition of Done
+# ============================================================
+- [ ] Lint + Type check ผ่าน
+- [ ] Test ที่เกี่ยวข้องผ่าน
+- [ ] PROGRESS.md / CHANGELOG.md อัปเดต
+- [ ] Comment // Cursor: ครบทุก block ที่แตะ
+- [ ] CEO รับทราบสรุปภาษาไทย
+- [ ] Responsive (mobile-first) ผ่าน
+- [ ] ไม่มี Dead code / Temporary hack ค้าง
+
+# อ้างอิงเต็ม: ดู AGENTS.md

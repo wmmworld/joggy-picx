@@ -1,0 +1,12 @@
+{
+  "root": true,
+  "language": "typescript",
+  "formatter": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {}
+  },
+  "exclude": ["node_modules", ".next"]
+}

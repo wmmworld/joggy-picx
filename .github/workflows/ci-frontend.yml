@@ -1,0 +1,56 @@
+# Codex: CI frontend ตาม ADR-0005 (path-filter + biome + typecheck + test)
+name: ci-frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/frontend/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/ci-frontend.yml"
+  pull_request:
+    paths:
+      - "apps/frontend/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/ci-frontend.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm --dir apps/frontend install --no-frozen-lockfile
+
+      - name: Lint (Biome)
+        run: pnpm --dir apps/frontend lint
+
+      - name: Typecheck (tsc)
+        run: pnpm --dir apps/frontend typecheck
+
+      - name: Test (optional in Phase 1)
+        run: |
+          if pnpm --dir apps/frontend run | grep -q "test"; then
+            pnpm --dir apps/frontend test
+          else
+            echo "No frontend test script yet (Phase 1 skeleton)."
+          fi

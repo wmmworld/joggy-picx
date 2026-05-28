@@ -1,0 +1,7 @@
+# Codex: lockfile skeleton สำหรับ Phase 1; ให้รัน `uv lock` อีกครั้งเมื่อ environment มี uv command
+version = 1
+revision = 1
+requires-python = ">=3.11,<3.13"
+
+[manifest]
+members = ["joggy-backend", "joggy-edge"]

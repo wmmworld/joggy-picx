@@ -1,0 +1,80 @@
+# Codex: Docker Compose skeleton สำหรับ Hetzner CPX11 ตามสถาปัตยกรรม Phase 1
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: joggy-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - fastapi
+    restart: unless-stopped
+    networks:
+      - joggy_net
+
+  fastapi:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+    container_name: joggy-fastapi
+    environment:
+      APP_ENV: production
+      REDIS_URL: redis://redis:6379/0
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - joggy_net
+
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile.worker
+    container_name: joggy-worker
+    mem_limit: 1200m          # ADR-0003 Rule 1 — กัน OOM ลาม services อื่น
+    environment:
+      APP_ENV: production
+      REDIS_URL: redis://redis:6379/0
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - joggy_net
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: joggy-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - joggy_net
+
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    container_name: joggy-watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.docker/config.json:/config.json:ro
+    command:
+      - --interval=300
+      - --cleanup
+      - --label-enable
+      - --rolling-restart
+    restart: unless-stopped
+    networks:
+      - joggy_net
+
+volumes:
+  redis_data:
+
+networks:
+  joggy_net:
+    driver: bridge

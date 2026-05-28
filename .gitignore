@@ -1,0 +1,52 @@
+# Codex: global ignore rules สำหรับ monorepo และ artifacts ที่ห้าม commit
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+.python-version
+
+# Node / Frontend
+node_modules/
+.next/
+dist/
+coverage/
+pnpm-store/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data / logs
+*.log
+tmp/
+temp/
+
+# Docker overrides
+docker-compose.override.yml
+
+# AI/ML large assets (no binary weights in git)
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.tflite
+datasets/
+models/
+
+# Local tool state
+.claude/
+.cursor/

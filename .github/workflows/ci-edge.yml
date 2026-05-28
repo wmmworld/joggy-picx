@@ -1,0 +1,64 @@
+# Codex: CI edge ตาม ADR-0005 (path-filter + quality checks + wheel artifact)
+name: ci-edge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/edge/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/ci-edge.yml"
+  pull_request:
+    paths:
+      - "apps/edge/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/ci-edge.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  edge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Sync edge dependencies
+        run: uv sync --package joggy-edge --dev
+
+      - name: Ruff
+        run: uv run --package joggy-edge ruff check apps/edge
+
+      - name: Mypy
+        run: uv run --package joggy-edge mypy apps/edge
+
+      - name: Pytest
+        run: |
+          if [ -d "apps/edge/tests" ]; then
+            uv run --package joggy-edge pytest apps/edge/tests -q
+          else
+            echo "No edge tests yet (Phase 1 skeleton)."
+          fi
+
+      - name: Build wheel artifact
+        run: uv build --package joggy-edge --wheel --out-dir dist/edge
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: joggy-edge-wheel
+          path: dist/edge/*.whl
