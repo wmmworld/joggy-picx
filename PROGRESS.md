@@ -145,6 +145,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
 
+### 2026-05-29 (Task 3 — enqueue_process_erasure)
+- [Claude] Task 3: Add `enqueue_process_erasure` to `worker/queue.py` using TDD — created failing test in `tests/worker/test_queue.py` (2 unit tests), implemented function in `joggy/worker/queue.py` following D-014 SLA pattern, committed as `d213ba2`
+
 ### 2026-05-29 (Task 2 — pytest-asyncio setup)
 - [Claude] Task 2: pytest-asyncio + test package structure — เพิ่ม pytest-asyncio ใน dev dependencies + ตั้ง asyncio_mode="auto" + สร้าง tests/__init__.py + tests/worker/__init__.py
 

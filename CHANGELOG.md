@@ -22,6 +22,9 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 
 ## [Unreleased]
 
+### Added
+- [Claude] Task 3: `enqueue_process_erasure()` function — RQ queue wrapper for Right-to-Erasure jobs (D-014 SLA 24h); added with TDD approach: 2 unit tests in `apps/backend/tests/worker/test_queue.py` covering job ID return + correct timeout values (300s/86400s/604800s); mirrors `enqueue_process_photo` pattern (commit: d213ba2)
+
 ### Infra
 - [Claude] Task 2: pytest-asyncio + test package structure — เพิ่ม `pytest-asyncio>=0.23.0,<1.0.0` ใน dev dependencies + ตั้ง `[tool.pytest.ini_options]` with `asyncio_mode = "auto"` + `testpaths = ["tests"]` + สร้าง `apps/backend/tests/__init__.py` + `apps/backend/tests/worker/__init__.py` (commit: 88ff19f)
 
