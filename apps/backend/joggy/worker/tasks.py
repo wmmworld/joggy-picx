@@ -21,6 +21,7 @@ from joggy.db.models import (
     ErasureStatus,
     FaceEmbedding,
     Photo,
+    ReviewQueue,
 )
 from joggy.services import r2
 from joggy.worker.db import worker_db_session
@@ -64,10 +65,15 @@ async def _process_erasure_async(erasure_id: str) -> dict:
         if not er:
             raise ValueError(f"ErasureRequest {erasure_id} not found")
 
+        # Idempotency: if already completed, return early without re-processing
+        if er.status == ErasureStatus.completed:
+            return {"erasure_id": erasure_id, "photos_deleted": 0, "status": "completed"}
+
         # 2. Mark as processing (so duplicate jobs skip it)
         er.status = ErasureStatus.processing
         db.add(er)
         await db.flush()
+        await db.commit()
 
         # 3. Find all Photos for this event + bib
         photo_result = await db.execute(
@@ -85,7 +91,13 @@ async def _process_erasure_async(erasure_id: str) -> dict:
                 delete(FaceEmbedding).where(FaceEmbedding.photo_id.in_(photo_ids))
             )
 
-        # 5. Delete R2 objects — original + thumbnail (R2 delete_object is safe for missing keys)
+        # 5a. Delete ReviewQueue rows (FK on photo_id → must go before Photo rows)
+        if photo_ids:
+            await db.execute(
+                delete(ReviewQueue).where(ReviewQueue.photo_id.in_(photo_ids))
+            )
+
+        # 5b. Delete R2 objects — original + thumbnail (R2 delete_object is safe for missing keys)
         for photo in photos:
             try:
                 r2.delete_object(photo.r2_key_original)
@@ -136,8 +148,9 @@ def process_erasure(erasure_id: str) -> dict:
 
     Deletion order (AGENTS.md security rule):
       1. FaceEmbeddings (biometric data — must go first)
-      2. R2 objects (original + thumbnail)
-      3. Photo DB rows
+      2. ReviewQueue rows (FK constraint on photo_id)
+      3. R2 objects (original + thumbnail)
+      4. Photo DB rows
 
     On failure: sets ErasureRequest.status = failed and re-raises so RQ
     marks the job as failed (visible in RQ dashboard / retry logic).
@@ -159,5 +172,8 @@ def process_erasure(erasure_id: str) -> dict:
                     er.status = ErasureStatus.failed
                     db.add(er)
 
-        asyncio.run(_mark_failed())
+        try:
+            asyncio.run(_mark_failed())
+        except Exception:
+            logger.exception("process_erasure: could not mark status=failed for %s", erasure_id)
         raise
