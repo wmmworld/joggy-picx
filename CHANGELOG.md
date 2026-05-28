@@ -23,6 +23,11 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] `tools/smoke_test.py` — standalone 7-check auth smoke test: health + ingest/internal/public no-auth (403) + public/erasure no-params (422) + public invalid-key (401) + internal invalid-JWT (401); exit 0 = all pass (commit: 9582de8)
+- [Claude] `apps/backend/joggy/worker/db.py` — async DB session context manager for sync RQ worker tasks; creates fresh engine per call (safe for forked workers); pool_size=5, max_overflow=10, pool_pre_ping=True (commit: a9af103)
+- [Claude] `apps/backend/joggy/worker/tasks.py` — `process_erasure()` + `_process_erasure_async()`: Right to Erasure (D-014, SLA 24h); deletion order: FaceEmbeddings → ReviewQueue → R2 objects → Photo rows; idempotency guard; `processing` committed before R2 loop; `_mark_failed` exception safety; AuditLog(actor=system) (commits: bf33040, a35c0f5)
+- [Claude] `apps/backend/joggy/api/public.py` — `request_erasure()` full implementation: scope check + UUID validate + event exists + organizer ownership check + idempotency (409) + ErasureRequest row (sla_deadline=now+24h) + enqueue_process_erasure (503 on Redis failure) + AuditLog(actor=partner) → 202 Accepted (commits: 6101307, 0dae9bb)
+- [Claude] `docs/cursor-tasks/phase2-day5-frontend.md` — Cursor prompts: Event Create Modal (`CreateEventModal.tsx` + events page button) + Review Queue skeleton (`/dashboard/review` static page + dashboard nav link) (commit: c9622af)
 - [Claude] Task 3: `enqueue_process_erasure()` function — RQ queue wrapper for Right-to-Erasure jobs (D-014 SLA 24h); added with TDD approach: 2 unit tests in `apps/backend/tests/worker/test_queue.py` covering job ID return + correct timeout values (300s/86400s/604800s); mirrors `enqueue_process_photo` pattern (commit: d213ba2)
 
 ### Infra

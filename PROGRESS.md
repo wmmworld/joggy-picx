@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-05-29
-ผู้อัปเดตล่าสุด: Claude (Tech Lead)
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 2 Day 5 complete
 
 ---
 
@@ -41,12 +41,11 @@ Milestone Day 4 (✅ เสร็จแล้ว):
 - [x] R2 service + RQ worker queue skeleton (Claude)
 - [x] Claude review Phase 2 Day 4 — แก้บัก 7 จุดใน Codex/Antigravity/Cursor output
 
-Milestone Day 5 (ถัดไป):
+Milestone Day 5 (✅ เสร็จแล้ว):
 - [x] pytest-asyncio + test package structure (Claude)
-- [ ] DELETE /erasure full implementation — ErasureRequest row + RQ job (Claude/Antigravity)
-- [ ] Event create/edit UI (Cursor — admin only)
-- [ ] Manual review queue UI skeleton (Cursor)
-- [ ] Integration smoke test — end-to-end ทุก auth path (Claude)
+- [x] DELETE /erasure full implementation — ErasureRequest row + RQ job + scope check + organizer check + idempotency (Claude)
+- [x] Integration smoke test — 7-check auth coverage (Claude)
+- [x] Cursor prompts เขียนแล้ว — Event Create Modal + Review Queue skeleton (ดู docs/cursor-tasks/phase2-day5-frontend.md)
 
 ---
 
@@ -54,7 +53,8 @@ Milestone Day 5 (ถัดไป):
 
 | AI | Task | File / Area | Tier | Model | Started At | Note |
 |---|---|---|---|---|---|---|
-_(ทุก Day 4 task เสร็จครบแล้ว — ดู Done Log ด้านล่าง)_
+| Cursor | Event Create Modal | `components/events/CreateEventModal.tsx` + `events/page.tsx` | C | claude-haiku | 2026-05-29 | prompt ใน docs/cursor-tasks/phase2-day5-frontend.md |
+| Cursor | Review Queue Skeleton | `app/(internal)/dashboard/review/page.tsx` | C | claude-haiku | 2026-05-29 | prompt ใน docs/cursor-tasks/phase2-day5-frontend.md |
 
 ---
 
@@ -144,6 +144,12 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-05-29 (Phase 2 Day 5 — Erasure + Smoke Test)
+- [Claude] Task 5: DELETE /erasure full implementation — scope check + UUID validate + event exists + organizer ownership check + idempotency (409) + ErasureRequest row + enqueue_process_erasure (503 on failure) + AuditLog(actor=partner) (commit: 0dae9bb)
+- [Claude] Task 4: process_erasure worker — FaceEmbeddings→ReviewQueue→R2→Photo deletion order + idempotency guard + commit(processing) before R2 loop + _mark_failed exception safety (commit: a35c0f5)
+- [Claude] Task 6: tools/smoke_test.py — 7-check standalone auth smoke test: health + ingest/internal/public no-auth + public/erasure no-params + public invalid-key + internal invalid-JWT (commit: 9582de8)
+- [Claude] docs/cursor-tasks/phase2-day5-frontend.md — Cursor prompts for Event Create Modal + Review Queue skeleton (commit: c9622af)
 
 ### 2026-05-29 (Task 3 — enqueue_process_erasure)
 - [Claude] Task 3: Add `enqueue_process_erasure` to `worker/queue.py` using TDD — created failing test in `tests/worker/test_queue.py` (2 unit tests), implemented function in `joggy/worker/queue.py` following D-014 SLA pattern, committed as `d213ba2`
