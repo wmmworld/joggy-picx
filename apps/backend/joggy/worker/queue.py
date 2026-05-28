@@ -1,9 +1,9 @@
 """
 RQ queue setup — single worker queue ตาม ADR-0003.
-Claude (Tech Lead) — Phase 2 Day 4
+Claude (Tech Lead) — Phase 2 Day 4 + Task 3
 
 Usage:
-    from joggy.worker.queue import enqueue_process_photo
+    from joggy.worker.queue import enqueue_process_photo, enqueue_process_erasure
 """
 
 from functools import lru_cache
@@ -39,5 +39,20 @@ def enqueue_process_photo(photo_id: str) -> str:
         job_timeout=300,       # 5 นาที max per photo
         result_ttl=86400,      # เก็บ result 24 ชั่วโมง
         failure_ttl=604800,    # เก็บ failed job 7 วัน
+    )
+    return job.id
+
+
+def enqueue_process_erasure(erasure_id: str) -> str:
+    """
+    Enqueue Right-to-Erasure job (D-014, SLA 24h).
+    Returns: RQ job ID
+    """
+    job = get_queue().enqueue(
+        "joggy.worker.tasks.process_erasure",
+        erasure_id,
+        job_timeout=300,
+        result_ttl=86400,
+        failure_ttl=604800,
     )
     return job.id
