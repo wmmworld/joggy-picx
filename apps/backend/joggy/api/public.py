@@ -116,10 +116,27 @@ async def request_erasure(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid event_id")
 
-    # Verify event exists
+    # Verify event exists and belongs to this partner's organizer
     event_result = await db.execute(select(Event).where(Event.id == event_uuid))
-    if not event_result.scalar_one_or_none():
+    event = event_result.scalar_one_or_none()
+    if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if event.organizer_id != claims.organizer_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Event does not belong to your organization")
+
+    # Idempotency: prevent duplicate pending erasure for same event+bib
+    existing_result = await db.execute(
+        select(ErasureRequest).where(
+            ErasureRequest.event_id == event_uuid,
+            ErasureRequest.bib_number == bib,
+            ErasureRequest.status == ErasureStatus.pending,
+        )
+    )
+    if existing_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Erasure request already pending for this bib",
+        )
 
     now = datetime.now(timezone.utc)
     sla_deadline = now + timedelta(hours=24)
@@ -136,7 +153,13 @@ async def request_erasure(
     await db.flush()
     await db.refresh(er)
 
-    job_id = enqueue_process_erasure(str(er.id))
+    try:
+        job_id = enqueue_process_erasure(str(er.id))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to enqueue erasure job; please retry.",
+        ) from exc
 
     # Audit log — actor = partner (the API key that requested erasure)
     audit = AuditLog(
