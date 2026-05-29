@@ -221,33 +221,27 @@ gphoto2 --port ptpip:192.168.x.x \
 ## 4. Result Template
 
 ```
-ทดสอบเมื่อ: ___
-Phase: A (Windows laptop) / B (Raspberry Pi 5)
-Hardware:
-  - Canon EOS RP firmware: ___
-  - Pi 5 RAM: ___ GB (Phase B only)
-  - สาย USB: ___
+=== Phase A (Windows) — ทดสอบ 2026-05-30 ✅ GO ===
+Hardware: Canon EOS RP + USB-C + Windows laptop + digiCamControl (Stable)
 
-=== Phase A (Windows) ===
-TC-A1 Connectivity:    PASS / FAIL — note: ___
-TC-A2 Tethered GUI:    PASS / FAIL — latency: ___s
-TC-A3 CLI Capture:     PASS / FAIL — note: ___
-TC-A4 Auto Folder:     PASS / FAIL — 5/5 files: ___
-TC-A5 PTP/IP WiFi:     PASS / FAIL / SKIP
+TC-A1 Connectivity:    ✅ PASS — gล้องขึ้นใน digiCamControl < 5s, Live View ได้
+TC-A2 Tethered GUI:    ✅ PASS — รูปปรากฏ < 3s, ขนาด 5-6 MB ถูกต้อง
+TC-A3 CLI Capture:     ✅ PASS — CameraControlCmd.exe /capture ทำงานได้, รูปใน C:\test_photos
+TC-A4 Auto Folder:     ✅ PASS — burst 5 รูป ครบ ชื่อไฟล์เรียงถูกต้อง
+TC-A5 PTP/IP WiFi:     ⚠️ SKIP (digiCamControl ไม่รองรับ Canon WiFi)
+                         Note: gphoto2 บน Pi รองรับ PTP/IP — defer to TC-B6
 
-=== Phase B (Pi 5) ===
-TC-B1 gphoto2 detect:  PASS / FAIL
-TC-B2 Single capture:  PASS / FAIL
-TC-B3 Hook script:     PASS / FAIL
-TC-B4 Burst 10 shots:  PASS / FAIL — avg: ___s, max: ___s
-TC-B5 Long session 2h: PASS / FAIL — RAM peak: ___ MB
-TC-B6 PTP/IP WiFi:     PASS / FAIL / SKIP
+Overall Phase A: ✅ GO — Path A (USB Tether) พร้อมใช้งาน
 
-Overall Phase A: GO / NO-GO
-Overall Phase B: GO / NO-GO
+=== Phase B (Raspberry Pi 5) — รอ Pi มาถึง ===
+TC-B1 gphoto2 detect:  PENDING
+TC-B2 Single capture:  PENDING
+TC-B3 Hook script:     PENDING
+TC-B4 Burst 10 shots:  PENDING — avg: ___s, max: ___s
+TC-B5 Long session 2h: PENDING — RAM peak: ___ MB
+TC-B6 PTP/IP WiFi:     PENDING (gphoto2 --port ptpip:IP — ต้องทดสอบบน Pi)
 
-Issues:
-- ___
+Overall Phase B: PENDING
 ```
 
 ---
