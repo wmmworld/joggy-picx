@@ -18,7 +18,7 @@ _INPUT_SIZE = 640
 _CONF_THRESHOLD = 0.5
 
 
-@dataclass
+@dataclass(frozen=True)
 class BibBox:
     """Bib bounding box ในพิกัดรูปต้นฉบับ."""
     x1: int
@@ -39,9 +39,10 @@ class BibDetector:
         ตรวจหา bib ในรูป BGR.
         Returns: BibBox ที่ confidence สูงสุด หรือ None ถ้าไม่เจอ.
         """
+        h, w = img_bgr.shape[:2]
         tensor, sx, sy = self._preprocess(img_bgr)
         outputs = self._sess.run(None, {"images": tensor})
-        return self._postprocess(outputs[0], sx, sy)
+        return self._postprocess(outputs[0], sx, sy, w, h)
 
     # ── private ──────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ class BibDetector:
         return tensor, sx, sy
 
     def _postprocess(
-        self, output: np.ndarray, sx: float, sy: float
+        self, output: np.ndarray, sx: float, sy: float, w: int, h: int
     ) -> BibBox | None:
         """
         Parse YOLOv8 output (1, 5, 8400).
@@ -74,6 +75,6 @@ class BibDetector:
         conf = float(filtered_confs[best_idx])
         x1 = max(0, int((cx - bw / 2) / sx))
         y1 = max(0, int((cy - bh / 2) / sy))
-        x2 = int((cx + bw / 2) / sx)
-        y2 = int((cy + bh / 2) / sy)
+        x2 = min(w, int((cx + bw / 2) / sx))
+        y2 = min(h, int((cy + bh / 2) / sy))
         return BibBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)

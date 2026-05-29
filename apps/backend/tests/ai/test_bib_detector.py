@@ -63,3 +63,20 @@ def test_detect_bbox_coordinates_scale_to_original():
     assert result is not None
     assert result.x1 == 270
     assert result.x2 == 370
+    assert result.y1 == 131
+    assert result.y2 == 168
+
+
+def test_detect_clamps_bbox_to_image_bounds():
+    # YOLO outputs bbox extending past 640×640 model space
+    # Image is 320×320 so sx=sy=2.0; cx=635, bw=20 → x2 = (645)/2.0 = 322.5 → clamped to 320
+    output = np.zeros((1, 5, 8400), dtype=np.float32)
+    output[0, 0, 0] = 635.0   # cx near right edge
+    output[0, 1, 0] = 635.0   # cy near bottom edge
+    output[0, 2, 0] = 20.0    # bw — extends past edge
+    output[0, 3, 0] = 20.0    # bh
+    output[0, 4, 0] = 0.9
+    result = BibDetector(_make_session(output)).detect(_make_img(h=320, w=320))
+    assert result is not None
+    assert result.x2 <= 320
+    assert result.y2 <= 320
