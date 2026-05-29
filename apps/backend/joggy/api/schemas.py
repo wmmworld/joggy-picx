@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -59,3 +60,23 @@ class PartnerKeyOut(BaseModel):
     scopes: list[str]
     rate_limit_per_minute: int
     created_at: datetime
+
+
+# Phase 4B: Review Queue API schemas
+
+class ReviewQueueItemOut(BaseModel):
+    """1 item in the review queue — includes photo metadata + signed thumbnail URL."""
+    queue_id: uuid.UUID
+    photo_id: uuid.UUID
+    reason: str                  # "low_ocr_conf" | "no_bib"
+    bib_number: str | None       # AI's best guess (may be None for no_bib)
+    bib_confidence: float        # 0.0–1.0
+    thumbnail_url: str           # R2 pre-signed URL, expires 1h
+    checkpoint_name: str | None  # checkpoint where photo was taken
+    created_at: datetime
+
+
+class ReviewAction(BaseModel):
+    """PATCH body — approve or reject a review queue item."""
+    action: Literal["approve", "reject"]
+    decision_bib: str | None = None  # override bib; ignored when action == "reject"
