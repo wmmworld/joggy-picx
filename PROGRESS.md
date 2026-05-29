@@ -5,13 +5,15 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-05-29
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 3 Task 8 complete: ONNX export scripts + models/ placeholder + .gitignore ✅
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 3 AI Pipeline backend ครบ 8 tasks ✅ (real-model validation deferred — รอ fine-tuned bib model + รูปจริง)
 
 ---
 
 ## 📍 Current Phase
 
-**Phase 2 — Backend + Pipeline (วันที่ 6–10)** | วันที่: Day 5 ✅ (รอ Step 5–6: server start + smoke test)
+**Phase 3 — AI Pipeline (วันที่ 11–16)** | Backend code ครบ ✅ | รอ real-model validation
+
+> Phase 2 ✅ ปิดแล้ว (backend + migration + smoke test 7/7) — server start + smoke test ผ่านแล้ว
 
 เป้าหมาย Phase นี้: Public API คืน photos by bib + Internal dashboard login ได้ + Pi อัปรูปด้วย event_token ได้
 
@@ -85,11 +87,14 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 - **Milestone:** Public API คืน photos by bib + Internal dashboard login ได้ + Pi อัปรูปด้วย event_token ได้
 
 ### Phase 3 — AI Pipeline (วันที่ 11–16)
-- [ ] Cross-checkpoint Re-ID logic (Claude)
-- [ ] YOLOv8 + PaddleOCR ONNX (Codex)
-- [ ] Manual review queue UI (Cursor)
-- [ ] InsightFace face embedding pipeline (Antigravity)
-- **Milestone:** AI อ่าน bib + face re-ID ทำงาน
+- [x] AI service objects: BibDetector + BibOcr + FaceEmbedder (ONNX-only, D-021) (Claude — subagent-driven)
+- [x] pipeline.py orchestrator + DB writes + Cross-checkpoint Re-ID (pgvector cosine) (Claude)
+- [x] process_photo() wiring + lazy ONNX session singleton (Claude)
+- [x] ONNX export scripts (tools/export/) + models/ placeholder (Claude)
+- [ ] **Fine-tuned bib detection model** (YOLOv8 1-class) — blocker สำหรับ full e2e (ยังไม่มี dataset/training plan)
+- [ ] Real-model validation: รัน pipeline กับ ONNX จริง + รูปนักวิ่งจริง (deferred — รอ model + รูป)
+- [ ] Manual review queue UI — รับ/ปฏิเสธ (Cursor, Phase 4)
+- **Milestone:** AI อ่าน bib + face re-ID ทำงาน — ⏳ backend พร้อม รอ validate กับ model จริง
 
 ### Phase 4 — Frontend + Integration (วันที่ 17–20)
 - [ ] End-to-end integration + bugfix (Claude)
@@ -122,12 +127,14 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 - [ ] race-result.asia integration spec (Pull mode)
 
 ### กลุ่ม AI Pipeline (Phase 3)
-- [ ] YOLOv8-nano ONNX integration + model download
-- [ ] PaddleOCR ONNX integration (Thai/English number)
-- [ ] InsightFace integration + 512-dim vector pipeline
-- [ ] Cross-checkpoint Re-ID logic
-- [ ] Manual review queue UI
+- [x] YOLOv8-nano ONNX integration (BibDetector) ✅ — code พร้อม รอ fine-tuned model
+- [x] PaddleOCR ONNX integration (BibOcr, digit-only 11-class) ✅
+- [x] InsightFace integration + 512-dim vector pipeline (FaceEmbedder) ✅
+- [x] Cross-checkpoint Re-ID logic (pgvector cosine, same-event) ✅
 - [x] ONNX export scripts (tools/export/) ✅ — Task 8 (commit: ab38c3c)
+- [ ] **Fine-tuned bib model** — yolov8n.pt default เป็น COCO 80-class (ไม่มี bib) → ต้อง train 1-class หรือหา public bib dataset
+- [ ] Real-model validation (export model จริง + รูปนักวิ่ง + รัน worker) — รอ model พร้อม
+- [ ] Manual review queue UI — รับ/ปฏิเสธ + override bib (Cursor, Phase 4)
 
 ### กลุ่ม Hardware
 - [ ] Canon EOS RP FTP setup test
