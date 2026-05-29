@@ -72,6 +72,8 @@ class FaceEmbedder:
         embed_tensor = self._embed_preprocess(aligned)
         raw = self._embed.run(None, {"input.1": embed_tensor})[0]
         vector = self._l2_normalize(raw[0])
+        if vector is None:
+            return None
         return FaceResult(vector=vector, box=face_box)
 
     # ── private ──────────────────────────────────────────────────────────────
@@ -80,7 +82,9 @@ class FaceEmbedder:
         h, w = img_bgr.shape[:2]
         scale = _DET_SIZE / max(h, w)
         new_h, new_w = int(h * scale), int(w * scale)
-        resized = cv2.resize(img_bgr, (new_w, new_h)).astype(np.float32)
+        resized = cv2.cvtColor(
+            cv2.resize(img_bgr, (new_w, new_h)), cv2.COLOR_BGR2RGB
+        ).astype(np.float32)
         canvas = np.zeros((_DET_SIZE, _DET_SIZE, 3), dtype=np.float32)
         canvas[:new_h, :new_w] = resized
         return canvas.transpose(2, 0, 1)[np.newaxis], scale
@@ -139,14 +143,15 @@ class FaceEmbedder:
         return cv2.warpAffine(img_bgr, M, (_EMBED_SIZE, _EMBED_SIZE))
 
     def _embed_preprocess(self, face_bgr: np.ndarray) -> np.ndarray:
-        """Normalize to [-1,1], NCHW float32."""
-        arr = face_bgr.astype(np.float32)
+        """BGR→RGB, normalize to [-1,1], NCHW float32 (InsightFace expects RGB)."""
+        rgb = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2RGB)
+        arr = rgb.astype(np.float32)
         normalized = (arr / 127.5) - 1.0
         return normalized.transpose(2, 0, 1)[np.newaxis]
 
     @staticmethod
-    def _l2_normalize(vec: np.ndarray) -> np.ndarray:
+    def _l2_normalize(vec: np.ndarray) -> np.ndarray | None:
         norm = float(np.linalg.norm(vec))
         if norm < 1e-6:
-            return vec
+            return None
         return (vec / norm).astype(np.float32)

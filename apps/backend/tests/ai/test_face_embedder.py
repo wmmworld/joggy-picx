@@ -45,6 +45,7 @@ def test_embed_returns_face_result_when_face_detected():
     result = FaceEmbedder(det_sess, embed_sess).embed(_make_img())
     assert isinstance(result, FaceResult)
     assert result.vector.shape == (512,)
+    embed_sess.run.assert_called_once()
 
 
 def test_embed_vector_is_l2_normalised():
@@ -65,3 +66,13 @@ def test_embed_does_not_call_embed_when_no_face():
     embed_sess = MagicMock()
     FaceEmbedder(det_sess, embed_sess).embed(_make_img())
     embed_sess.run.assert_not_called()
+
+
+def test_embed_returns_none_when_embedding_is_zero():
+    """Degenerate all-zero embedding output → None (would produce NaN in cosine sim)."""
+    det_sess = MagicMock()
+    det_sess.run.return_value = _make_face_det_output()
+    embed_sess = MagicMock()
+    embed_sess.run.return_value = [np.zeros((1, 512), dtype=np.float32)]
+    result = FaceEmbedder(det_sess, embed_sess).embed(_make_img())
+    assert result is None
