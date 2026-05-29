@@ -366,3 +366,60 @@ async def list_review_queue(
             )
         )
     return result
+
+
+@router.patch("/review-queue/{queue_id}", status_code=status.HTTP_200_OK)
+async def resolve_review_queue(
+    queue_id: uuid.UUID,
+    payload: ReviewAction,
+    db: AsyncSession = Depends(get_db),
+    claims: InternalUserClaims = Depends(verify_internal_user),
+) -> dict:
+    """Approve or reject a review queue item (with optional bib override)."""
+    # 1. Load queue item
+    rq_result = await db.execute(select(ReviewQueue).where(ReviewQueue.id == queue_id))
+    rq = rq_result.scalar_one_or_none()
+    if rq is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review queue item not found")
+
+    # 2. Idempotency guard
+    if rq.status not in (ReviewQueueStatus.pending, ReviewQueueStatus.in_review):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Item already resolved")
+
+    # 3. Load photo + event for scope check
+    photo_result = await db.execute(select(Photo).where(Photo.id == rq.photo_id))
+    photo = photo_result.scalar_one_or_none()
+    if photo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found")
+
+    event = await _get_event_or_404(db, photo.event_id)
+    _ensure_staff_event_access(claims, event)
+
+    # 4. Resolve
+    now = datetime.now(timezone.utc)
+    if payload.action == "approve":
+        rq.status = ReviewQueueStatus.approved
+        photo.ai_review_status = AIReviewStatus.manual_approved
+        if payload.decision_bib:
+            rq.decision_bib = payload.decision_bib
+            photo.bib_number_nullable = payload.decision_bib
+    else:
+        rq.status = ReviewQueueStatus.rejected
+        photo.ai_review_status = AIReviewStatus.manual_rejected
+
+    rq.resolved_at = now
+    db.add(rq)
+    db.add(photo)
+
+    # 5. AuditLog
+    db.add(AuditLog(
+        actor_kind=ActorKind.internal_user,
+        actor_app_user_id=claims.user_id,
+        action=f"review_{payload.action}d",
+        target_kind="photo",
+        target_id=photo.id,
+        context={"queue_id": str(rq.id), "decision_bib": rq.decision_bib},
+    ))
+
+    await db.commit()
+    return {"status": rq.status.value, "queue_id": str(rq.id)}

@@ -157,3 +157,130 @@ async def test_list_review_queue_404_when_event_not_found(api_client, mock_db):
         response = await client.get(f"/internal/review-queue?event_id={event_id}")
 
     assert response.status_code == 404
+
+
+# ── PATCH /internal/review-queue/{queue_id} tests ───────────────────────────
+
+@pytest.mark.asyncio
+async def test_approve_sets_manual_approved_status(api_client, mock_db):
+    event_id = uuid.uuid4()
+    photo_id = uuid.uuid4()
+    queue_id = uuid.uuid4()
+    event = _make_event(event_id)
+    photo = _make_photo(photo_id, event_id)
+    rq = _make_queue_item(photo_id)
+    rq.id = queue_id
+
+    rq_result = MagicMock()
+    rq_result.scalar_one_or_none.return_value = rq
+    photo_result = MagicMock()
+    photo_result.scalar_one_or_none.return_value = photo
+    event_result = MagicMock()
+    event_result.scalar_one_or_none.return_value = event
+    mock_db.execute.side_effect = [rq_result, photo_result, event_result]
+
+    async with api_client as client:
+        response = await client.patch(
+            f"/internal/review-queue/{queue_id}",
+            json={"action": "approve"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "approved"
+    assert photo.ai_review_status == AIReviewStatus.manual_approved
+    assert rq.status == ReviewQueueStatus.approved
+    assert rq.resolved_at is not None
+
+
+@pytest.mark.asyncio
+async def test_approve_with_override_bib_updates_photo(api_client, mock_db):
+    event_id = uuid.uuid4()
+    photo_id = uuid.uuid4()
+    queue_id = uuid.uuid4()
+    event = _make_event(event_id)
+    photo = _make_photo(photo_id, event_id)
+    rq = _make_queue_item(photo_id)
+    rq.id = queue_id
+
+    rq_result = MagicMock()
+    rq_result.scalar_one_or_none.return_value = rq
+    photo_result = MagicMock()
+    photo_result.scalar_one_or_none.return_value = photo
+    event_result = MagicMock()
+    event_result.scalar_one_or_none.return_value = event
+    mock_db.execute.side_effect = [rq_result, photo_result, event_result]
+
+    async with api_client as client:
+        response = await client.patch(
+            f"/internal/review-queue/{queue_id}",
+            json={"action": "approve", "decision_bib": "9999"},
+        )
+
+    assert response.status_code == 200
+    assert photo.bib_number_nullable == "9999"
+    assert rq.decision_bib == "9999"
+
+
+@pytest.mark.asyncio
+async def test_reject_sets_manual_rejected_status(api_client, mock_db):
+    event_id = uuid.uuid4()
+    photo_id = uuid.uuid4()
+    queue_id = uuid.uuid4()
+    event = _make_event(event_id)
+    photo = _make_photo(photo_id, event_id)
+    rq = _make_queue_item(photo_id)
+    rq.id = queue_id
+
+    rq_result = MagicMock()
+    rq_result.scalar_one_or_none.return_value = rq
+    photo_result = MagicMock()
+    photo_result.scalar_one_or_none.return_value = photo
+    event_result = MagicMock()
+    event_result.scalar_one_or_none.return_value = event
+    mock_db.execute.side_effect = [rq_result, photo_result, event_result]
+
+    async with api_client as client:
+        response = await client.patch(
+            f"/internal/review-queue/{queue_id}",
+            json={"action": "reject"},
+        )
+
+    assert response.status_code == 200
+    assert photo.ai_review_status == AIReviewStatus.manual_rejected
+    assert rq.status == ReviewQueueStatus.rejected
+
+
+@pytest.mark.asyncio
+async def test_patch_already_resolved_returns_409(api_client, mock_db):
+    queue_id = uuid.uuid4()
+    rq = _make_queue_item(uuid.uuid4())
+    rq.id = queue_id
+    rq.status = ReviewQueueStatus.approved  # already resolved
+
+    rq_result = MagicMock()
+    rq_result.scalar_one_or_none.return_value = rq
+    mock_db.execute.return_value = rq_result
+
+    async with api_client as client:
+        response = await client.patch(
+            f"/internal/review-queue/{queue_id}",
+            json={"action": "approve"},
+        )
+
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_patch_not_found_returns_404(api_client, mock_db):
+    queue_id = uuid.uuid4()
+    rq_result = MagicMock()
+    rq_result.scalar_one_or_none.return_value = None
+    mock_db.execute.return_value = rq_result
+
+    async with api_client as client:
+        response = await client.patch(
+            f"/internal/review-queue/{queue_id}",
+            json={"action": "approve"},
+        )
+
+    assert response.status_code == 404
