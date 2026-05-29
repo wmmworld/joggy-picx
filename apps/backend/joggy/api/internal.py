@@ -12,7 +12,7 @@ from datetime import timedelta
 
 import argon2
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from joggy.api.schemas import (
@@ -21,8 +21,17 @@ from joggy.api.schemas import (
     EventStatusUpdate,
     PartnerKeyCreate,
     PartnerKeyOut,
+    ReviewQueueItemOut,
+    ReviewAction,
 )
-from joggy.db.models import Checkpoint, Event, EventStatus, Organizer, PartnerApiKey
+from joggy.db.models import (
+    Checkpoint, Event, EventStatus, Organizer, PartnerApiKey,
+    ReviewQueue, ReviewQueueStatus,
+    Photo,
+    AIReviewStatus,
+    ActorKind, AuditLog,
+)
+from joggy.services import r2
 from joggy.db.session import get_db
 from joggy.middleware.internal_auth import InternalUserClaims, verify_internal_user
 
@@ -311,3 +320,49 @@ async def revoke_partner_api_key(
     # Claude: func.now() เป็น SQL expression ใช้กับ ORM attribute ตรงๆ ไม่ได้ — ต้องใช้ Python datetime
     partner_key.revoked_at = datetime.now(timezone.utc)
     db.add(partner_key)
+
+
+# ── Review Queue ─────────────────────────────────────────────────────────────
+
+@router.get("/review-queue", response_model=list[ReviewQueueItemOut], status_code=status.HTTP_200_OK)
+async def list_review_queue(
+    event_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    claims: InternalUserClaims = Depends(verify_internal_user),
+) -> list[ReviewQueueItemOut]:
+    """List pending review-queue items for an event (max 200, sorted newest first)."""
+    event = await _get_event_or_404(db, event_id)
+    _ensure_staff_event_access(claims, event)
+
+    stmt = (
+        select(ReviewQueue, Photo, Checkpoint)
+        .join(Photo, Photo.id == ReviewQueue.photo_id)
+        .outerjoin(Checkpoint, Checkpoint.id == Photo.checkpoint_id)
+        .where(
+            and_(
+                Photo.event_id == event_id,
+                ReviewQueue.status.in_([ReviewQueueStatus.pending, ReviewQueueStatus.in_review]),
+            )
+        )
+        .order_by(ReviewQueue.created_at.desc())
+        .limit(200)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    result = []
+    for rq, photo, checkpoint in rows:
+        key = photo.r2_key_thumbnail or photo.r2_key_original
+        url = r2.signed_url(key, expires_in=3600)
+        result.append(
+            ReviewQueueItemOut(
+                queue_id=rq.id,
+                photo_id=photo.id,
+                reason=rq.reason,
+                bib_number=photo.bib_number_nullable,
+                bib_confidence=photo.bib_confidence,
+                thumbnail_url=url,
+                checkpoint_name=checkpoint.name if checkpoint else None,
+                created_at=rq.created_at,
+            )
+        )
+    return result
