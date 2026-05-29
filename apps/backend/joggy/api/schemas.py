@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # Codex: request payload สำหรับสร้าง event ใหม่ (admin only)
@@ -70,8 +70,8 @@ class ReviewQueueItemOut(BaseModel):
     photo_id: uuid.UUID
     reason: str                  # "low_ocr_conf" | "no_bib"
     bib_number: str | None       # AI's best guess (may be None for no_bib)
-    bib_confidence: float        # 0.0–1.0
-    thumbnail_url: str           # R2 pre-signed URL, expires 1h
+    bib_confidence: float | None  # 0.0–1.0; None when no bib detected
+    thumbnail_url: str | None    # R2 pre-signed URL, expires 1h; None if no thumbnail
     checkpoint_name: str | None  # checkpoint where photo was taken
     created_at: datetime
 
@@ -80,3 +80,11 @@ class ReviewAction(BaseModel):
     """PATCH body — approve or reject a review queue item."""
     action: Literal["approve", "reject"]
     decision_bib: str | None = None  # override bib; ignored when action == "reject"
+
+    @field_validator("decision_bib", mode="before")
+    @classmethod
+    def _coerce_blank_to_none(cls, v: object) -> object:
+        """Coerce empty/whitespace decision_bib to None to prevent storing corrupt bib."""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
