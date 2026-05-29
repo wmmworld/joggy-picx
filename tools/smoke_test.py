@@ -38,32 +38,32 @@ with httpx.Client(base_url=BASE_URL, timeout=10.0) as client:
     # 1. Health check
     check("[1/7] GET /health → 200", client.get("/health"), 200)
 
-    # 2. Ingest: no Authorization header → 403
+    # 2. Ingest: no Authorization header → 401 (no credentials = Unauthorized, not Forbidden)
     check(
-        "[2/7] POST /ingest/photos (no token) → 403",
+        "[2/7] POST /ingest/photos (no token) → 401",
         client.post("/ingest/photos", data={"device_id": "x"}),
-        403,
+        401,
     )
 
-    # 3. Internal: no Authorization header → 403
+    # 3. Internal: no Authorization header → 401
     check(
-        "[3/7] GET /internal/events (no token) → 403",
+        "[3/7] GET /internal/events (no token) → 401",
         client.get("/internal/events"),
-        403,
+        401,
     )
 
-    # 4. Public photos: no X-API-Key, no query params → 422 (FastAPI missing required params)
+    # 4. Public photos: no X-API-Key → 401 (auth dependency runs before param validation)
     check(
-        "[4/7] GET /v1/public/photos (no key, no params) → 422",
+        "[4/7] GET /v1/public/photos (no key) → 401",
         client.get("/v1/public/photos"),
-        422,
+        401,
     )
 
-    # 5. Erasure: no X-API-Key, no query params → 422
+    # 5. Erasure: no X-API-Key → 401 (route: /v1/public/erasure, auth runs before param validation)
     check(
-        "[5/7] DELETE /v1/erasure (no key, no params) → 422",
-        client.request("DELETE", "/v1/erasure"),
-        422,
+        "[5/7] DELETE /v1/public/erasure (no key) → 401",
+        client.request("DELETE", "/v1/public/erasure"),
+        401,
     )
 
     # 6. Public photos: valid params + INVALID key → 401

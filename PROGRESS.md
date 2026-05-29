@@ -5,13 +5,13 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-05-29
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 2 Day 5 complete
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 2 Day 5 complete: migration ✅ to Supabase, all backend tasks done
 
 ---
 
 ## 📍 Current Phase
 
-**Phase 2 — Backend + Pipeline (วันที่ 6–10)** | วันที่: Day 4
+**Phase 2 — Backend + Pipeline (วันที่ 6–10)** | วันที่: Day 5 ✅ (รอ Step 5–6: server start + smoke test)
 
 เป้าหมาย Phase นี้: Public API คืน photos by bib + Internal dashboard login ได้ + Pi อัปรูปด้วย event_token ได้
 
@@ -46,6 +46,7 @@ Milestone Day 5 (✅ เสร็จแล้ว):
 - [x] DELETE /erasure full implementation — ErasureRequest row + RQ job + scope check + organizer check + idempotency (Claude)
 - [x] Integration smoke test — 7-check auth coverage (Claude)
 - [x] Cursor prompts เขียนแล้ว — Event Create Modal + Review Queue skeleton (ดู docs/cursor-tasks/phase2-day5-frontend.md)
+- [x] Event Create Modal + form validation + apiPost integration (Cursor)
 
 ---
 
@@ -53,8 +54,7 @@ Milestone Day 5 (✅ เสร็จแล้ว):
 
 | AI | Task | File / Area | Tier | Model | Started At | Note |
 |---|---|---|---|---|---|---|
-| Cursor | Event Create Modal | `components/events/CreateEventModal.tsx` + `events/page.tsx` | C | claude-haiku | 2026-05-29 | prompt ใน docs/cursor-tasks/phase2-day5-frontend.md |
-| Cursor | Review Queue Skeleton | `app/(internal)/dashboard/review/page.tsx` | C | claude-haiku | 2026-05-29 | prompt ใน docs/cursor-tasks/phase2-day5-frontend.md |
+| — | — | — | — | — | — | ว่าง |
 
 ---
 
@@ -145,11 +145,15 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
 
-### 2026-05-29 (Phase 2 Day 5 — Erasure + Smoke Test)
+### 2026-05-29 (Phase 2 Day 5 — Erasure + Smoke Test + Migration)
+- [Claude] Alembic migration แก้บัก 2 จุด: alembic.ini (ลบ Thai comment → UnicodeDecodeError บน Windows cp874, แก้ script_location เป็น relative path) + env.py (เปลี่ยน os.getenv() → get_settings().database_url ให้ pydantic-settings โหลด .env อัตโนมัติ)
+- [Claude] Supabase Session Pooler debug: Direct connection (IPv6 only ไม่ได้บน Windows IPv4) → ใช้ Session Pooler aws-1-ap-southeast-1.pooler.supabase.com:5432 สำเร็จ
+- [Claude] `uv run alembic upgrade head` ✅ — 0001_initial_schema สร้าง 11 tables ใน Supabase
 - [Claude] Task 5: DELETE /erasure full implementation — scope check + UUID validate + event exists + organizer ownership check + idempotency (409) + ErasureRequest row + enqueue_process_erasure (503 on failure) + AuditLog(actor=partner) (commit: 0dae9bb)
 - [Claude] Task 4: process_erasure worker — FaceEmbeddings→ReviewQueue→R2→Photo deletion order + idempotency guard + commit(processing) before R2 loop + _mark_failed exception safety (commit: a35c0f5)
 - [Claude] Task 6: tools/smoke_test.py — 7-check standalone auth smoke test: health + ingest/internal/public no-auth + public/erasure no-params + public invalid-key + internal invalid-JWT (commit: 9582de8)
 - [Claude] docs/cursor-tasks/phase2-day5-frontend.md — Cursor prompts for Event Create Modal + Review Queue skeleton (commit: c9622af)
+- [Cursor] Event Create Modal + form validation + apiPost integration ✅
 
 ### 2026-05-29 (Task 3 — enqueue_process_erasure)
 - [Claude] Task 3: Add `enqueue_process_erasure` to `worker/queue.py` using TDD — created failing test in `tests/worker/test_queue.py` (2 unit tests), implemented function in `joggy/worker/queue.py` following D-014 SLA pattern, committed as `d213ba2`
