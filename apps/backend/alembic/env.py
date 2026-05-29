@@ -9,24 +9,22 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
 
+from joggy.core.config import get_settings
 from joggy.db import models as _models  # noqa: F401
 
-# Codex: Alembic Config object สำหรับเข้าถึงค่าจาก alembic.ini
+# Alembic Config object
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Codex: import models แล้วให้ metadata มาจาก SQLModel (D-020 workflow)
+# Import models so SQLModel.metadata is populated (D-020 workflow)
 target_metadata = SQLModel.metadata
 
 
 def _database_url() -> str:
-    # Codex: อ่าน DATABASE_URL จาก environment เป็นค่า source of truth ของ runtime
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        raise RuntimeError("DATABASE_URL is required for Alembic migrations.")
-    return url
+    # Use pydantic-settings so .env file is loaded automatically
+    return get_settings().database_url
 
 
 def run_migrations_offline() -> None:
