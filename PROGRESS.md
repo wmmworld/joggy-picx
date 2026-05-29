@@ -11,7 +11,7 @@
 
 ## 📍 Current Phase
 
-**Phase 4B — Manual Review Queue API** | Task 3: PATCH endpoint ✅ | GET (Task 2) ✅
+**Phase 4B — Manual Review Queue** | Backend ✅ (GET + PATCH, 8/8 tests) | Frontend prompt ready → Cursor executes
 
 > Phase 2 ✅ ปิดแล้ว (backend + migration + smoke test 7/7) — server start + smoke test ผ่านแล้ว
 
@@ -152,9 +152,13 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
 
-### 2026-05-29 (Phase 4B Task 3 — PATCH /internal/review-queue/{id})
+### 2026-05-29 (Phase 4B — Manual Review Queue)
+- [Claude] Cursor prompt: `docs/cursor-tasks/phase4b-review-queue-frontend.md` — full prompt for apiPatch + useReviewQueue + Review Queue page UI (commit: 5e0eeba)
+- [Claude] fix(api): AuditLog action typo `"review_rejectd"` → `"review_rejected"` (commit: f1c4e91)
 - [Claude] Task 3: `apps/backend/joggy/api/internal.py` — PATCH endpoint `resolve_review_queue`: load → idempotency 409 → photo+event scope check → approve/reject status transitions → optional bib override → AuditLog → commit (commit: fe8dcfe)
 - [Claude] Task 3: `apps/backend/tests/api/test_review_queue.py` — 5 new PATCH tests: approve status, bib override, reject status, 409 already-resolved, 404 not-found; 8/8 review queue tests pass, 40/40 total suite pass
+- [Claude] Task 2: `GET /internal/review-queue?event_id=` — JOIN ReviewQueue+Photo+Checkpoint, filter pending/in_review, max 200, R2 signed URLs; 3 tests (commit: a3bb705)
+- [Claude] Task 1: `ReviewQueueItemOut` + `ReviewAction` schemas — nullable bib_confidence/thumbnail_url, blank decision_bib → None validator (commits: e6f0f08, e2776ce)
 
 ### 2026-05-29 (Phase 3 Task 8 — Export Scripts + Models Placeholder)
 - [Claude] Task 8: `apps/backend/.gitignore` — excludes `models/*.onnx` + `models/buffalo_s/*.onnx`

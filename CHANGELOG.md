@@ -23,8 +23,14 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] Phase 4B: `docs/cursor-tasks/phase4b-review-queue-frontend.md` — Cursor prompt for Review Queue frontend: `apiPatch` helper + `useReviewQueue` hook + full page UI with bulk select, per-row approve/reject/override, optimistic update, lightbox, toast (commit: 5e0eeba)
 - [Claude] Phase 4B Task 3: `PATCH /internal/review-queue/{queue_id}` — approve/reject endpoint with optional bib override; idempotency guard (409 if already resolved); AuditLog entry per action; `rq.status.value` in response; `datetime.now(timezone.utc)` for resolved_at (`apps/backend/joggy/api/internal.py`, commit: fe8dcfe)
 - [Claude] Phase 4B Task 3: 5 PATCH tests in `apps/backend/tests/api/test_review_queue.py` — approve status, bib override, reject status, 409 already-resolved, 404 not-found; full suite 40/40 ✅
+- [Claude] Phase 4B Task 2: `GET /internal/review-queue?event_id=` — JOIN ReviewQueue+Photo+Checkpoint, filter pending/in_review, ORDER BY created_at DESC LIMIT 200, R2 signed URLs; 3 TDD tests (commit: a3bb705)
+- [Claude] Phase 4B Task 1: `ReviewQueueItemOut` + `ReviewAction` Pydantic schemas — bib_confidence/thumbnail_url nullable, blank decision_bib coerced to None (commits: e6f0f08, e2776ce)
+
+### Fixed
+- [Claude] Phase 4B: AuditLog action typo `"review_rejectd"` → `"review_rejected"` in `resolve_review_queue` (commit: f1c4e91)
 
 - [Claude] Task 8: `tools/export/export_yolo.py` — dev-only script: YOLOv8n.pt → ONNX (imgsz=640, simplify, opset 17); outputs `apps/backend/models/yolov8n_bib.onnx`; includes tensor-name verification notes (requires `ultralytics`, not in pyproject.toml)
 - [Claude] Task 8: `tools/export/export_ocr.py` — dev-only script: PP-OCRv4 det+rec → ONNX via `paddle2onnx`; det shape `[1,3,960,960]`, rec shape `[1,3,48,320]`, opset 11; outputs `apps/backend/models/ocr_det.onnx` + `ocr_rec.onnx`
