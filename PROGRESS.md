@@ -5,13 +5,13 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-05-29
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 3 AI Pipeline backend ครบ 8 tasks ✅ (real-model validation deferred — รอ fine-tuned bib model + รูปจริง)
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 4B Task 3: PATCH /internal/review-queue/{id} ✅ (8/8 tests pass, 40/40 total)
 
 ---
 
 ## 📍 Current Phase
 
-**Phase 3 — AI Pipeline (วันที่ 11–16)** | Backend code ครบ ✅ | รอ real-model validation
+**Phase 4B — Manual Review Queue API** | Task 3: PATCH endpoint ✅ | GET (Task 2) ✅
 
 > Phase 2 ✅ ปิดแล้ว (backend + migration + smoke test 7/7) — server start + smoke test ผ่านแล้ว
 
@@ -151,6 +151,10 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-05-29 (Phase 4B Task 3 — PATCH /internal/review-queue/{id})
+- [Claude] Task 3: `apps/backend/joggy/api/internal.py` — PATCH endpoint `resolve_review_queue`: load → idempotency 409 → photo+event scope check → approve/reject status transitions → optional bib override → AuditLog → commit (commit: fe8dcfe)
+- [Claude] Task 3: `apps/backend/tests/api/test_review_queue.py` — 5 new PATCH tests: approve status, bib override, reject status, 409 already-resolved, 404 not-found; 8/8 review queue tests pass, 40/40 total suite pass
 
 ### 2026-05-29 (Phase 3 Task 8 — Export Scripts + Models Placeholder)
 - [Claude] Task 8: `apps/backend/.gitignore` — excludes `models/*.onnx` + `models/buffalo_s/*.onnx`

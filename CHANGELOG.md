@@ -23,6 +23,9 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] Phase 4B Task 3: `PATCH /internal/review-queue/{queue_id}` — approve/reject endpoint with optional bib override; idempotency guard (409 if already resolved); AuditLog entry per action; `rq.status.value` in response; `datetime.now(timezone.utc)` for resolved_at (`apps/backend/joggy/api/internal.py`, commit: fe8dcfe)
+- [Claude] Phase 4B Task 3: 5 PATCH tests in `apps/backend/tests/api/test_review_queue.py` — approve status, bib override, reject status, 409 already-resolved, 404 not-found; full suite 40/40 ✅
+
 - [Claude] Task 8: `tools/export/export_yolo.py` — dev-only script: YOLOv8n.pt → ONNX (imgsz=640, simplify, opset 17); outputs `apps/backend/models/yolov8n_bib.onnx`; includes tensor-name verification notes (requires `ultralytics`, not in pyproject.toml)
 - [Claude] Task 8: `tools/export/export_ocr.py` — dev-only script: PP-OCRv4 det+rec → ONNX via `paddle2onnx`; det shape `[1,3,960,960]`, rec shape `[1,3,48,320]`, opset 11; outputs `apps/backend/models/ocr_det.onnx` + `ocr_rec.onnx`
 - [Claude] Task 8: `apps/backend/models/README.md` — table of 5 required model files (sizes + sources) + InsightFace buffalo_s download instructions
