@@ -23,6 +23,8 @@ node_modules/
 dist/
 coverage/
 pnpm-store/
+*.tsbuildinfo
+package-lock.json
 
 # Env / secrets
 .env

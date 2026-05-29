@@ -2,6 +2,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../lib/api";
 
+// Cursor: Payload type for POST /internal/events (D-019)
+export type EventCreatePayload = {
+  organizer_id: string;
+  name: string;
+  start_at: string;
+  end_at: string;
+  allowed_origins?: object | null;
+};
+
 // Cursor (fixed by Claude): align with backend EventOut schema
 // status values match EventStatus enum: "planned" | "active" | "completed"
 // checkpoints is always [] in list endpoint (detail fetches full list)

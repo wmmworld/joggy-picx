@@ -3,10 +3,7 @@ import { NextConfig } from "next";
 
 const config: NextConfig = {
   reactStrictMode: true,
-  experimental: {
-    appDir: true
-  },
-  images: {
+images: {
     // Cloudflare R2 signed URL host (placeholder)
     domains: ["r2.cloudflarestorage.com", "static.example.com"]
   }
