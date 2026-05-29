@@ -1,0 +1,4 @@
+# ONNX model files — baked into Docker image, not committed to git
+# Populate via export scripts (tools/export/) OR copy manually before docker build
+models/*.onnx
+models/buffalo_s/*.onnx

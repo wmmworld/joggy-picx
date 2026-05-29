@@ -48,6 +48,12 @@ docker-compose.override.yml
 *.tflite
 datasets/
 models/
+# Allow placeholder files inside models/ dirs to preserve directory structure in git
+!apps/backend/models/
+!apps/backend/models/.gitkeep
+!apps/backend/models/README.md
+!apps/backend/models/buffalo_s/
+!apps/backend/models/buffalo_s/.gitkeep
 
 # Local tool state
 .claude/
