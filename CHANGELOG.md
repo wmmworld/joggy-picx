@@ -23,6 +23,14 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] Task 8: `tools/export/export_yolo.py` — dev-only script: YOLOv8n.pt → ONNX (imgsz=640, simplify, opset 17); outputs `apps/backend/models/yolov8n_bib.onnx`; includes tensor-name verification notes (requires `ultralytics`, not in pyproject.toml)
+- [Claude] Task 8: `tools/export/export_ocr.py` — dev-only script: PP-OCRv4 det+rec → ONNX via `paddle2onnx`; det shape `[1,3,960,960]`, rec shape `[1,3,48,320]`, opset 11; outputs `apps/backend/models/ocr_det.onnx` + `ocr_rec.onnx`
+- [Claude] Task 8: `apps/backend/models/README.md` — table of 5 required model files (sizes + sources) + InsightFace buffalo_s download instructions
+- [Claude] Task 8: `apps/backend/models/.gitkeep` + `apps/backend/models/buffalo_s/.gitkeep` — git placeholders for model directories
+- [Claude] Task 8: `apps/backend/.gitignore` — excludes `models/*.onnx` + `models/buffalo_s/*.onnx` (ONNX files baked into Docker image, not committed)
+
+### Infra
+- [Claude] Task 8: Root `.gitignore` — added negation rules (`!apps/backend/models/`, `!apps/backend/models/.gitkeep`, etc.) to allow placeholder + README files through the broad `models/` exclusion pattern (commit: ab38c3c)
 - [Cursor] Manual Review Queue skeleton: `app/(internal)/dashboard/review/page.tsx` — static UI only (Phase 2), header + stats card (0 hardcoded) + disabled action buttons + table (empty state) + Phase 3 placeholder note (apps/frontend/)
 - [Cursor] Enhanced main dashboard: nav cards (Events + Review Queue + Quick Actions) with Link navigation + pending badge + emoji icons (apps/frontend/app/(internal)/dashboard/page.tsx)
 - [Cursor] Event Create Modal: `components/events/CreateEventModal.tsx` — form (name, organizer_id, start_at, end_at, allowed_origins), client-side validation (end_at > start_at), apiPost integration, loading state, inline error display, backdrop click + × button to close, auto-reset on isOpen change (Phase 2 Day 5)

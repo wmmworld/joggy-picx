@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-05-29
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 2 Day 5 complete: migration ✅ to Supabase, all backend tasks done
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 3 Task 8 complete: ONNX export scripts + models/ placeholder + .gitignore ✅
 
 ---
 
@@ -127,7 +127,7 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 - [ ] InsightFace integration + 512-dim vector pipeline
 - [ ] Cross-checkpoint Re-ID logic
 - [ ] Manual review queue UI
-- [ ] ONNX export scripts (tools/export/)
+- [x] ONNX export scripts (tools/export/) ✅ — Task 8 (commit: ab38c3c)
 
 ### กลุ่ม Hardware
 - [ ] Canon EOS RP FTP setup test
@@ -144,6 +144,14 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-05-29 (Phase 3 Task 8 — Export Scripts + Models Placeholder)
+- [Claude] Task 8: `apps/backend/.gitignore` — excludes `models/*.onnx` + `models/buffalo_s/*.onnx`
+- [Claude] Task 8: `apps/backend/models/.gitkeep` + `apps/backend/models/buffalo_s/.gitkeep` — directory placeholders
+- [Claude] Task 8: `apps/backend/models/README.md` — table of 5 required ONNX files + InsightFace buffalo_s download instructions
+- [Claude] Task 8: `tools/export/export_yolo.py` — YOLOv8n → ONNX export script (dev-only, requires ultralytics)
+- [Claude] Task 8: `tools/export/export_ocr.py` — PP-OCRv4 det+rec → ONNX via paddle2onnx (dev-only)
+- [Claude] Root `.gitignore` updated — negation rules added to allow `.gitkeep` / `README.md` in `apps/backend/models/` through the broad `models/` exclusion (commit: ab38c3c)
 
 ### 2026-05-29 (Phase 2 Day 5 — Erasure + Smoke Test + Migration)
 - [Claude] Alembic migration แก้บัก 2 จุด: alembic.ini (ลบ Thai comment → UnicodeDecodeError บน Windows cp874, แก้ script_location เป็น relative path) + env.py (เปลี่ยน os.getenv() → get_settings().database_url ให้ pydantic-settings โหลด .env อัตโนมัติ)
