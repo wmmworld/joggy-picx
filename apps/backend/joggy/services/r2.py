@@ -46,6 +46,15 @@ def upload_bytes(key: str, data: bytes, content_type: str = "image/jpeg") -> Non
     )
 
 
+def download_bytes(key: str) -> bytes:
+    """ดาวน์โหลด object จาก R2 เป็น bytes — ใช้โดย AI pipeline worker."""
+    response = _get_client().get_object(
+        Bucket=get_settings().r2_bucket_name,
+        Key=key,
+    )
+    return response["Body"].read()
+
+
 def delete_object(key: str) -> None:
     """ลบ object ใน R2 — ใช้โดย Erasure worker."""
     _get_client().delete_object(
