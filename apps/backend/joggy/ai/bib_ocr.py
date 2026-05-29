@@ -72,6 +72,11 @@ class BibOcr:
         Remove blanks + consecutive duplicates, then assemble digit string.
         """
         probs = logits[0]          # (T, 11)
+        if probs.shape[-1] != _BLANK + 1:
+            raise ValueError(
+                f"BibOcr expects {_BLANK + 1}-class output (10 digits + blank), "
+                f"got shape {logits.shape}. Verify ocr_rec.onnx is a digit-only model."
+            )
         indices = probs.argmax(axis=1)   # (T,)
         chars: list[str] = []
         confs: list[float] = []
@@ -84,6 +89,4 @@ class BibOcr:
         if not chars:
             return None
         number = "".join(chars)
-        if not number.isdigit():
-            return None
         return BibResult(number=number, confidence=float(np.mean(confs)))

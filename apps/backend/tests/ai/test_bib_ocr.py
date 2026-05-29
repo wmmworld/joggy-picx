@@ -63,3 +63,33 @@ def test_read_confidence_is_mean_of_char_probs():
     result = BibOcr(MagicMock(), _rec_session(logits)).read(_make_img(), _make_bbox())
     assert result is not None
     assert result.confidence == pytest.approx(0.7, abs=0.01)
+
+
+def test_read_returns_none_when_empty_crop():
+    """bbox with x1==x2 produces zero-size crop → None (no inference)."""
+    rec_sess = MagicMock()
+    ocr = BibOcr(MagicMock(), rec_sess)
+    bbox = _make_bbox(x1=50, y1=50, x2=50, y2=80)  # zero width
+    result = ocr.read(_make_img(), bbox)
+    assert result is None
+    rec_sess.run.assert_not_called()
+
+
+def test_ctc_collapse_consecutive_duplicates():
+    """Three consecutive frames predicting '1' → BibResult('1') per CTC rules."""
+    T, C = 3, 11
+    logits = np.zeros((1, T, C), dtype=np.float32)
+    for t in range(T):
+        logits[0, t, 1] = 0.9   # digit "1" repeated
+    result = BibOcr(MagicMock(), _rec_session(logits)).read(_make_img(), _make_bbox())
+    assert result is not None
+    assert result.number == "1"
+
+
+def test_ctc_decode_raises_on_wrong_shape():
+    """Wrong vocab size should fail loudly, not silently corrupt."""
+    # 1, T=2, C=20 — wrong! Should be 11
+    logits = np.zeros((1, 2, 20), dtype=np.float32)
+    logits[0, 0, 1] = 0.9
+    with pytest.raises(ValueError, match="digit-only model"):
+        BibOcr(MagicMock(), _rec_session(logits)).read(_make_img(), _make_bbox())
