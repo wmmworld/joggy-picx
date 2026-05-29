@@ -4,6 +4,11 @@ from unittest.mock import MagicMock, patch, ANY
 from joggy.services import r2
 
 
+def setup_function():
+    """Clear lru_cache on r2._get_client to isolate from earlier tests."""
+    r2._get_client.cache_clear()
+
+
 def test_download_bytes_returns_content():
     fake_body = io.BytesIO(b"fake_jpeg_content")
     fake_client = MagicMock()
