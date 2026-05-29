@@ -23,6 +23,9 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Cursor] Phase 4B: `apiPatch<T, B>` helper added to `apps/frontend/lib/api.ts` — identical to apiPost but uses PATCH method; auto JWT injection from Supabase
+- [Cursor] Phase 4B: `apps/frontend/hooks/useReviewQueue.ts` — types (ReviewQueueItem, ReviewActionPayload, ReviewActionResponse) + `useReviewQueue(eventId)` query hook + `useResolveItem()` mutation hook for approve/reject actions
+- [Cursor] Phase 4B: Full Review Queue page (`apps/frontend/app/(internal)/dashboard/review/page.tsx`) — event dropdown (useEvents), stats bar, bulk approve/reject (Promise.all), table (checkbox all, thumbnail + lightbox, bib override input, confidence badges, approve/reject buttons with loading state), optimistic updates (remove from items), toast notifications (auto-hide 3s), loading skeleton, empty states
 - [Claude] Phase 4B: `docs/cursor-tasks/phase4b-review-queue-frontend.md` — Cursor prompt for Review Queue frontend: `apiPatch` helper + `useReviewQueue` hook + full page UI with bulk select, per-row approve/reject/override, optimistic update, lightbox, toast (commit: 5e0eeba)
 - [Claude] Phase 4B Task 3: `PATCH /internal/review-queue/{queue_id}` — approve/reject endpoint with optional bib override; idempotency guard (409 if already resolved); AuditLog entry per action; `rq.status.value` in response; `datetime.now(timezone.utc)` for resolved_at (`apps/backend/joggy/api/internal.py`, commit: fe8dcfe)
 - [Claude] Phase 4B Task 3: 5 PATCH tests in `apps/backend/tests/api/test_review_queue.py` — approve status, bib override, reject status, 409 already-resolved, 404 not-found; full suite 40/40 ✅

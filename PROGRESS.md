@@ -5,13 +5,13 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-05-29
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 4B Task 3: PATCH /internal/review-queue/{id} ✅ (8/8 tests pass, 40/40 total)
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 4B complete: Review Queue backend + Cursor frontend ✅ TypeScript 0 errors
 
 ---
 
 ## 📍 Current Phase
 
-**Phase 4B — Manual Review Queue** | Backend ✅ (GET + PATCH, 8/8 tests) | Frontend prompt ready → Cursor executes
+**Phase 4 — Frontend + Integration** | Phase 4B Review Queue ✅ complete | Next: Photo gallery + race-result.asia integration
 
 > Phase 2 ✅ ปิดแล้ว (backend + migration + smoke test 7/7) — server start + smoke test ผ่านแล้ว
 
@@ -153,6 +153,7 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
 
 ### 2026-05-29 (Phase 4B — Manual Review Queue)
+- [Cursor] Phase 4B Tasks A, B, C ✅ — `apiPatch` helper added to `lib/api.ts` + `hooks/useReviewQueue.ts` created (types + hooks) + `review/page.tsx` full implementation: event dropdown, stats bar, bulk actions, table (checkbox, thumbnail, bib override input, confidence badges, approve/reject buttons), lightbox modal, toast notifications, optimistic updates
 - [Claude] Cursor prompt: `docs/cursor-tasks/phase4b-review-queue-frontend.md` — full prompt for apiPatch + useReviewQueue + Review Queue page UI (commit: 5e0eeba)
 - [Claude] fix(api): AuditLog action typo `"review_rejectd"` → `"review_rejected"` (commit: f1c4e91)
 - [Claude] Task 3: `apps/backend/joggy/api/internal.py` — PATCH endpoint `resolve_review_queue`: load → idempotency 409 → photo+event scope check → approve/reject status transitions → optional bib override → AuditLog → commit (commit: fe8dcfe)
