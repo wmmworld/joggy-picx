@@ -415,7 +415,7 @@ async def resolve_review_queue(
     db.add(AuditLog(
         actor_kind=ActorKind.internal_user,
         actor_app_user_id=claims.user_id,
-        action=f"review_{payload.action}d",
+        action="review_approved" if payload.action == "approve" else "review_rejected",
         target_kind="photo",
         target_id=photo.id,
         context={"queue_id": str(rq.id), "decision_bib": rq.decision_bib},
