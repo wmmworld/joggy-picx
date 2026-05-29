@@ -89,3 +89,45 @@ export async function apiPost<T, B = unknown>(
     };
   }
 }
+
+// Cursor: PATCH helper with auth + payload (Phase 4B Review Queue)
+export async function apiPatch<T, B = unknown>(
+  endpoint: string,
+  body?: B
+): Promise<ApiResponse<T>> {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session }
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.detail || `HTTP ${response.status}`
+      };
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error"
+    };
+  }
+}
