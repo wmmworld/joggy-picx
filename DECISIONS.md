@@ -36,19 +36,28 @@ Format ของแต่ละ Decision:
 
 ## D-002 — Raspberry Pi 5 เป็น Edge Ingestion (REQUIREMENT ไม่ใช่ Optional)
 
-- **Status:** Accepted
-- **Date:** 2026-05-28
-- **Context:** Canon EOS RP รองรับ WiFi FTP เท่านั้น และไม่สามารถ FTP ข้าม WAN หรือใช้ HTTPS โดยตรงไปยัง R2/VPS ได้
-- **Decision:** ใช้ Raspberry Pi 5 เป็น edge gateway: รับ FTP จาก Canon ภายใน LAN → Python watchdog upload ขึ้น R2
+- **Status:** Accepted — **Revised 2026-05-29** (Canon EOS RP ไม่มี FTP)
+- **Date:** 2026-05-28 | **Revised:** 2026-05-29
+- **Context:** Canon EOS RP **ไม่มี FTP client** (FTP มีเฉพาะ pro body: R5, R6 II, 5D IV) — D-002 ยังคงถูกต้องที่ Pi เป็น REQUIREMENT แต่ ingestion mechanism เปลี่ยนจาก FTP → USB Tether (gphoto2)
+- **Decision (Revised):**
+  - **Path A (หลัก):** Canon EOS RP --USB-C→ Pi 5 รัน `gphoto2 --capture-tethered` → hook script → upload VPS
+  - **Path C (รอง/backup):** Canon EOS RP --WiFi PTP/IP→ Pi 5 รัน `gphoto2 --port ptpip:IP` → hook script → upload VPS
+  - Python watchdog uploader ยังคงเหมือนเดิม — เปลี่ยนแค่วิธีรับรูปเข้า Pi
 - **Alternatives Considered:**
-  - ส่ง FTP ไปยัง VPS ตรง — ไม่ work เพราะ Canon FTP ไม่ผ่าน WAN ที่มี NAT/Firewall มาตรฐาน
-  - ใช้ SD card swap manual — ไม่ realtime
-  - ใช้ Canon Connect app บนมือถือ — ไม่ scale ถ้ามีหลายกล้อง
+  - FTP (เดิม) — Canon EOS RP ไม่รองรับ ❌
+  - SD card swap manual — ไม่ realtime ❌
+  - อัปเกรดกล้องเป็น R6 II / R5 — เกินงบ (฿70k–140k) ❌
+  - Canon EOS Utility / digiCamControl บน Windows — ใช้ทดสอบก่อน Pi มาถึง ✅ (Phase A)
+  - WiFi PTP/IP (Path C) — experimental, ทดสอบ TC-B6, ใช้เป็น backup
 - **Consequences:**
-  - ✅ FTP จาก Canon ทำงานได้จริงในสนาม
+  - ✅ gphoto2 รองรับ Canon EOS RP ใน supported camera list
+  - ✅ USB tether latency < 2 วินาที/รูป (เร็วกว่า FTP)
+  - ✅ Path A + Path C ใช้ code เดียวกัน (gphoto2 transport layer ต่างกัน)
   - ✅ Pi ทำ motion detection (YOLO) สำหรับ auto-trigger ได้ด้วย
+  - ⚠️ USB-C สูงสุด 2m (active cable), Pi ต้องอยู่ใกล้กล้อง
   - ⚠️ ต้องพก Pi + dummy battery ไปสนาม
-  - ⚠️ Pi เป็น potential point of failure (มี backup plan: SD card swap)
+  - ⚠️ Path C (WiFi) ทดสอบยังไม่เสร็จ — รอ TC-B6
+- **Test Plan:** `docs/canon-tether-test.md` (แทนที่ `docs/canon-ftp-test.md`)
 
 ---
 

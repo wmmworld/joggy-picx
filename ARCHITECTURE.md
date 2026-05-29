@@ -33,10 +33,11 @@
   ─────────────────                     ───────────────────────────            ─────────────────────────────────
   iOS/Android                            Canon EOS RP                           Canon EOS RP + Pi sensor
        │                                      │                                       │
-       │ AI on-device                         │ WiFi FTP                              │ Interval mode (1-2s)
-       │ (compress + tag)                     │                                       │ หรือ Motion mode (Pi YOLO)
+       │ AI on-device                         │ USB-C Tether (gphoto2)                │ USB-C Tether (gphoto2)
+       │ (compress + tag)                     │ [หรือ WiFi PTP/IP backup]             │ + Pi YOLO motion trigger
        ▼                                      ▼                                       ▼
-   HTTPS upload                       Raspberry Pi 5 (vsftpd + watchdog) ◄────── Pi trigger camera shutter
+   HTTPS upload                       Raspberry Pi 5 (gphoto2 + watchdog) ◄────── Pi trigger camera shutter
+                                      [⚠️ Canon EOS RP ไม่มี FTP — D-002 revised]
        │                                      │
        │                                      │ Python watchdog uploader
        │                                      ▼
@@ -108,8 +109,8 @@
 |---|---|---|
 | **Canon EOS RP** | Mirrorless camera | WiFi FTP เท่านั้น (จำกัด: ข้าม WAN ไม่ได้) |
 | **Raspberry Pi 5** | Edge ingestion gateway | REQUIREMENT ไม่ใช่ optional |
-| **vsftpd (บน Pi)** | รับไฟล์จาก Canon | LAN เท่านั้น |
-| **Python watchdog uploader (บน Pi)** | Monitor folder + upload R2 | Async, retry, queue-based |
+| **gphoto2 (บน Pi)** | รับรูปจาก Canon ผ่าน USB tether หรือ WiFi PTP/IP | Path A: USB-C; Path C: WiFi PTP/IP [D-002 revised] |
+| **Python watchdog uploader (บน Pi)** | Hook script จาก gphoto2 → upload R2 | Async, retry, queue-based |
 | **Mobile app (iOS/Android)** | ถ่ายรูป + AI on-device + upload | ไม่ผ่าน Pi |
 
 ### 3.2 Storage Layer
