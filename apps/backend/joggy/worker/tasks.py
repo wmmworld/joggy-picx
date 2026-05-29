@@ -11,6 +11,10 @@ import asyncio
 import logging
 import uuid as _uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from joggy.ai.session import ModelSessions
 
 from sqlalchemy import delete, select
 
@@ -29,27 +33,46 @@ from joggy.worker.db import worker_db_session
 logger = logging.getLogger(__name__)
 
 
+# ── Module-level ONNX session singleton ───────────────────────────────────────
+# Loaded once when the RQ worker process starts.
+# Lazy load on first call to avoid import-time side effects.
+_sessions: "ModelSessions | None" = None  # type: ignore[assignment]
+
+
+def _get_sessions() -> "ModelSessions":
+    """Return preloaded ONNX sessions — load on first call (worker startup)."""
+    global _sessions
+    if _sessions is None:
+        import os
+        from joggy.ai.session import load_sessions
+        model_dir = os.environ.get("MODEL_DIR", "models")
+        logger.info("Loading ONNX sessions from %s ...", model_dir)
+        _sessions = load_sessions(model_dir)
+        logger.info("ONNX sessions loaded OK")
+    return _sessions
+
+
 # ── Phase 3: Photo AI pipeline ────────────────────────────────────────────────
+
+async def _process_photo_async(photo_id: str, sessions: "ModelSessions") -> dict:
+    """Async wrapper — creates DB session and calls pipeline.run_pipeline()."""
+    from joggy.worker.pipeline import run_pipeline
+    async with worker_db_session() as db:
+        return await run_pipeline(photo_id, db, sessions)
+
 
 def process_photo(photo_id: str) -> dict:
     """
-    AI pipeline สำหรับ 1 รูป:
-      1. โหลด JPEG จาก R2
-      2. YOLOv8-nano ONNX → detect bib bounding box
-      3. PaddleOCR ONNX → อ่านเลขบิบ (confidence score)
-      4. InsightFace buffalo_s ONNX → extract face embedding (512-dim)
-      5. UPDATE photos SET bib_number=?, bib_confidence=?, ai_review_status=?
-      6. INSERT face_embeddings (ถ้ามีหน้า)
-      7. ถ้า confidence ต่ำ → INSERT review_queue
-
-    Phase 2: skeleton — log เท่านั้น
-    Phase 3: implement จริง (Codex + Antigravity)
+    RQ job entrypoint — AI pipeline for 1 photo.
+    Preloads ONNX sessions on first call (worker startup).
+    On failure: logs + re-raises (RQ will retry up to job_timeout).
     """
-    logger.info("process_photo called: photo_id=%s (Phase 3 pending)", photo_id)
-    # TODO Phase 3:
-    #   from joggy.worker.models import yolo_sess, ocr_sess, face_sess  # preloaded at boot
-    #   ... ONNX inference pipeline ...
-    return {"photo_id": photo_id, "status": "pending_phase3"}
+    sessions = _get_sessions()
+    try:
+        return asyncio.run(_process_photo_async(photo_id, sessions))
+    except Exception:
+        logger.exception("process_photo FAILED: photo_id=%s", photo_id)
+        raise
 
 
 # ── Right to Erasure (D-014, SLA 24h) ────────────────────────────────────────
