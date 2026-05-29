@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import onnxruntime as ort
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModelSessions:
     """ONNX InferenceSession สำหรับ 5 model — ส่งผ่าน constructor ไม่ใช่ global."""
     yolo: ort.InferenceSession

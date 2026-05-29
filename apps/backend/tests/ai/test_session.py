@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import pytest
 
 from joggy.ai.session import ModelSessions, load_sessions
