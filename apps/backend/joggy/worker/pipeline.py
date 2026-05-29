@@ -74,6 +74,21 @@ async def run_pipeline(
     if photo is None:
         raise ValueError(f"Photo not found: {photo_id}")
 
+    # Idempotency: if a human has already reviewed this photo, do not re-run AI
+    if photo.ai_review_status in (
+        AIReviewStatus.manual_approved,
+        AIReviewStatus.manual_rejected,
+    ):
+        return {
+            "photo_id": photo_id,
+            "bib_number": photo.bib_number_nullable,
+            "bib_confidence": photo.bib_confidence,
+            "ai_review_status": photo.ai_review_status.value,
+            "reid_match": None,
+            "needs_review": False,
+            "skipped_reason": "already_reviewed",
+        }
+
     event: Event | None = (await db.execute(
         select(Event).where(Event.id == photo.event_id)
     )).scalar_one_or_none()
@@ -100,7 +115,7 @@ async def run_pipeline(
 
     # 5b. UPDATE Photo
     photo.bib_number_nullable = bib_result.number if bib_result is not None else None
-    photo.bib_confidence = bib_result.confidence if bib_result is not None else 0.0
+    photo.bib_confidence = bib_result.confidence if bib_result is not None else None
     photo.ai_review_status = ai_status
     db.add(photo)
 
@@ -140,12 +155,16 @@ async def run_pipeline(
         or photo.ai_review_status == AIReviewStatus.manual_pending
     )
     if needs_review:
-        reason = "no_bib" if photo.bib_number_nullable is None else "low_ocr_conf"
-        db.add(ReviewQueue(
-            photo_id=photo_uuid,
-            reason=reason,
-            status=ReviewQueueStatus.pending,
-        ))
+        existing_rq = (await db.execute(
+            select(ReviewQueue).where(ReviewQueue.photo_id == photo_uuid)
+        )).scalar_one_or_none()
+        if existing_rq is None:
+            reason = "no_bib" if photo.bib_number_nullable is None else "low_ocr_conf"
+            db.add(ReviewQueue(
+                photo_id=photo_uuid,
+                reason=reason,
+                status=ReviewQueueStatus.pending,
+            ))
 
     # 9. AuditLog
     db.add(AuditLog(
@@ -162,7 +181,6 @@ async def run_pipeline(
         },
     ))
 
-    await db.commit()
     return {
         "photo_id": photo_id,
         "bib_number": photo.bib_number_nullable,
@@ -194,7 +212,7 @@ async def _reid_query(
             ORDER BY similarity DESC
             LIMIT 5
         """),
-        {"vec": vec_str, "event_id": str(event_id)},
+        {"vec": vec_str, "event_id": event_id},
     )).fetchall()
 
     for bib_number, similarity in rows:
