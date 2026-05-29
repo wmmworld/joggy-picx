@@ -23,7 +23,12 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
-- [Claude] `tools/smoke_test.py` — standalone 7-check auth smoke test: health + ingest/internal/public no-auth (403) + public/erasure no-params (422) + public invalid-key (401) + internal invalid-JWT (401); exit 0 = all pass (commit: 9582de8)
+- [Cursor] Manual Review Queue skeleton: `app/(internal)/dashboard/review/page.tsx` — static UI only (Phase 2), header + stats card (0 hardcoded) + disabled action buttons + table (empty state) + Phase 3 placeholder note (apps/frontend/)
+- [Cursor] Enhanced main dashboard: nav cards (Events + Review Queue + Quick Actions) with Link navigation + pending badge + emoji icons (apps/frontend/app/(internal)/dashboard/page.tsx)
+- [Cursor] Event Create Modal: `components/events/CreateEventModal.tsx` — form (name, organizer_id, start_at, end_at, allowed_origins), client-side validation (end_at > start_at), apiPost integration, loading state, inline error display, backdrop click + × button to close, auto-reset on isOpen change (Phase 2 Day 5)
+- [Cursor] Added `EventCreatePayload` type to `hooks/useEvents.ts`
+- [Cursor] Updated `events/page.tsx`: + สร้างงานใหม่ button, useQueryClient, invalidate ["events"] cache on success, mount CreateEventModal
+- [Claude] `tools/smoke_test.py` — standalone 7-check auth smoke test: health + ingest/internal/public no-auth + public/erasure no-key + public invalid-key (401) + internal invalid-JWT (401); **7/7 passed ✅** against live Supabase DB (commit: 9582de8, fix: e897d32)
 - [Claude] `apps/backend/joggy/worker/db.py` — async DB session context manager for sync RQ worker tasks; creates fresh engine per call (safe for forked workers); pool_size=5, max_overflow=10, pool_pre_ping=True (commit: a9af103)
 - [Claude] `apps/backend/joggy/worker/tasks.py` — `process_erasure()` + `_process_erasure_async()`: Right to Erasure (D-014, SLA 24h); deletion order: FaceEmbeddings → ReviewQueue → R2 objects → Photo rows; idempotency guard; `processing` committed before R2 loop; `_mark_failed` exception safety; AuditLog(actor=system) (commits: bf33040, a35c0f5)
 - [Claude] `apps/backend/joggy/api/public.py` — `request_erasure()` full implementation: scope check + UUID validate + event exists + organizer ownership check + idempotency (409) + ErasureRequest row (sla_deadline=now+24h) + enqueue_process_erasure (503 on Redis failure) + AuditLog(actor=partner) → 202 Accepted (commits: 6101307, 0dae9bb)
@@ -34,7 +39,12 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 - [Claude] Task 2: pytest-asyncio + test package structure — เพิ่ม `pytest-asyncio>=0.23.0,<1.0.0` ใน dev dependencies + ตั้ง `[tool.pytest.ini_options]` with `asyncio_mode = "auto"` + `testpaths = ["tests"]` + สร้าง `apps/backend/tests/__init__.py` + `apps/backend/tests/worker/__init__.py` (commit: 88ff19f)
 
 ### Fixed
-- [Claude] `apps/backend/joggy/api/internal.py` — `revoke_partner_api_key`: `func.now()` → `datetime.now(timezone.utc)` (SQL expression ไม่สามารถ assign ให้ ORM attribute ตรงๆ ได้); เพิ่ม `timezone` ใน imports (2026-05-28)
+- [Claude] `apps/backend/alembic.ini` + `alembic/env.py` — แก้ UnicodeDecodeError (ลบ Thai comment ออกจาก .ini ที่ Windows อ่านด้วย cp874) + แก้ script_location เป็น relative path + เปลี่ยน `os.getenv()` → `get_settings().database_url` ให้ pydantic-settings โหลด .env อัตโนมัติ (commit: e897d32)
+- [Claude] `tools/smoke_test.py` — แก้ expected status codes: 401 แทน 403 สำหรับ no-credentials requests + 401 แทน 422 เพราะ auth dependency run ก่อน param validation + แก้ erasure path `/v1/erasure` → `/v1/public/erasure` (commit: e897d32)
+- [Claude] `apps/frontend/package.json` — `biome` → `@biomejs/biome: ^1.9.0` (package name ถูกต้อง) + เพิ่ม `@types/node`, `@types/react`, `@types/react-dom`
+- [Claude] `apps/frontend/middleware.ts` — `request.cookies.getSetCookie()` → `request.cookies.getAll()` (method ไม่มีใน RequestCookies) + เพิ่ม explicit type ให้ `setAll` callback
+- [Claude] `apps/frontend/next.config.ts` — ลบ `experimental: { appDir: true }` (removed ใน Next.js 13.4+, causes TS error ใน Next.js 15)
+- [Claude] `apps/backend/joggy/api/internal.py` — `revoke_partner_api_key`: `func.now()` → `datetime.now(timezone.utc)` (SQL expression ไม่สามารถ assign ให้ ORM attribute ตรงๆ ได้); เพิ่ม `timezone` ใน imports (2026-05-28) — `revoke_partner_api_key`: `func.now()` → `datetime.now(timezone.utc)` (SQL expression ไม่สามารถ assign ให้ ORM attribute ตรงๆ ได้); เพิ่ม `timezone` ใน imports (2026-05-28)
 - [Claude] `apps/backend/joggy/api/public.py` — `request_erasure`: uncomment `claims: PartnerKeyClaims = Depends(verify_partner_api_key)` ที่ถูก Antigravity comment out → ปิดช่องโหว่ erasure endpoint ไม่มี auth; เพิ่ม `erasure:write` scope check ในตัว handler (2026-05-28)
 - [Claude] `apps/backend/joggy/api/public.py` — `get_photos_by_bib`: `checkpoint.kind` → `checkpoint.kind.value` เพื่อ return string แทน raw Enum object (2026-05-28)
 - [Claude] `apps/backend/joggy/api/public.py` — ย้าย `from joggy.middleware.partner_key import ...` ขึ้นมาก่อน `router = APIRouter()` (ตาม Python convention) (2026-05-28)
