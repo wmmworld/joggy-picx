@@ -56,8 +56,9 @@ Format ของแต่ละ Decision:
   - ✅ Pi ทำ motion detection (YOLO) สำหรับ auto-trigger ได้ด้วย
   - ⚠️ USB-C สูงสุด 2m (active cable), Pi ต้องอยู่ใกล้กล้อง
   - ⚠️ ต้องพก Pi + dummy battery ไปสนาม
-  - ⚠️ Path C (WiFi) ทดสอบยังไม่เสร็จ — รอ TC-B6
+  - ⚠️ Path C (WiFi) tested 2026-05-31: detect ✅ แต่ capture ❌ (Canon proprietary handshake — gphoto2 limitation) → Path A USB เป็น primary
 - **Test Plan:** `docs/canon-tether-test.md` (แทนที่ `docs/canon-ftp-test.md`)
+- **Production Decision (2026-05-31):** Path A (USB-C tether) เป็น primary — validated บน Pi 5 จริง (TC-B1/B2/B3/B4 PASS, 2.5s/รูป burst latency)
 
 ---
 
