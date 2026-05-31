@@ -142,18 +142,17 @@ gphoto2 --capture-image-and-download --filename /home/pi/photos/test_%n.jpg
 
 ```bash
 #!/bin/bash
-# Called by gphoto2 after each capture
-# $1 = filepath of downloaded image
-FILEPATH="$1"
-if [ -z "$FILEPATH" ]; then exit 0; fi
-
-echo "[$(date)] New photo: $FILEPATH" >> /home/pi/logs/capture.log
-
-# Phase 2: trigger actual upload
-# python3 /home/pi/joggy/uploader.py "$FILEPATH"
-
-# Phase A test: just log
-echo "UPLOAD_PENDING: $FILEPATH" >> /home/pi/logs/upload_queue.log
+# Called by gphoto2 for each event in tethered mode
+# gphoto2 ส่งค่าผ่าน ENV VARS (ไม่ใช่ positional args!):
+#   $ACTION: init | start | download | stop
+#   $ARGUMENT: filepath (เฉพาะตอน ACTION=download)
+LOGFILE=/home/pi/logs/capture.log
+QUEUE=/home/pi/logs/upload_queue.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] ACTION=$ACTION ARGUMENT=$ARGUMENT" >> "$LOGFILE"
+if [ "$ACTION" = "download" ] && [ -n "$ARGUMENT" ]; then
+    echo "UPLOAD_PENDING: $ARGUMENT" >> "$QUEUE"
+    # Phase 2 จริง: python3 /home/pi/joggy/uploader.py "$ARGUMENT"
+fi
 ```
 
 ```bash
@@ -233,16 +232,65 @@ TC-A5 PTP/IP WiFi:     ⚠️ SKIP (digiCamControl ไม่รองรับ C
 
 Overall Phase A: ✅ GO — Path A (USB Tether) พร้อมใช้งาน
 
-=== Phase B (Raspberry Pi 5) — รอ Pi มาถึง ===
-TC-B1 gphoto2 detect:  PENDING
-TC-B2 Single capture:  PENDING
-TC-B3 Hook script:     PENDING
-TC-B4 Burst 10 shots:  PENDING — avg: ___s, max: ___s
-TC-B5 Long session 2h: PENDING — RAM peak: ___ MB
-TC-B6 PTP/IP WiFi:     PENDING (gphoto2 --port ptpip:IP — ต้องทดสอบบน Pi)
+=== Phase B (Raspberry Pi 5) — ทดสอบ 2026-05-31 ===
+Hardware: Pi 5 (Raspberry Pi OS 64-bit Desktop, kernel 6.12.75) + Canon EOS RP + USB-C
+gphoto2 2.5.31, libgphoto2 2.5.31
 
-Overall Phase B: PENDING
+TC-B1 gphoto2 detect:  ✅ PASS — usb:001,004
+TC-B2 Single capture:  ✅ PASS — ไฟล์ 6.6 MB
+TC-B3 Hook script:     ✅ PASS — capture log + upload_queue ครบ
+                         (ข้อมูล: gphoto2 ส่งผ่าน env vars ACTION/ARGUMENT
+                         ไม่ใช่ positional $1/$2)
+TC-B4 Burst 10 shots:  ⏳ DEFER — รอชาร์จแบต
+TC-B5 Long session 2h: ⏳ DEFER — รอ dummy battery
+TC-B6 PTP/IP WiFi:     ⏳ DEFER
+
+Overall Phase B: ✅ GO (core validation) — pending: performance/stability tests
+
+=== Issues encountered + fixes ===
+1. gphoto2 error "Could not claim the USB device" — gvfs-gphoto2-volume-monitor
+   ของ Pi OS Desktop แย่ง USB; แก้: override service file ที่
+   /etc/systemd/user/gvfs-gphoto2-volume-monitor.service.d/override.conf
+   เพิ่ม ConditionPathExists=/nonexistent → service จะ inactive
+   (production แนะนำใช้ Pi OS Lite — ไม่มี gvfs ตั้งแต่แรก)
+
+2. Hook script $1 $2 = empty — gphoto2 ส่งผ่าน env vars ACTION/ARGUMENT แทน
+   ต้องใช้ "$ACTION" และ "$ARGUMENT" ใน script
 ```
+
+---
+
+## 4.5 Known Gotchas (Pi 5 Desktop OS — แก้ก่อนใช้งานจริง)
+
+### Gotcha 1: gvfs แย่ง USB (Desktop edition เท่านั้น)
+
+อาการ:
+```
+*** Error ***
+An error occurred in the io-library ('Could not claim the USB device'):
+Could not claim interface 0 (Device or resource busy).
+```
+
+แก้ถาวร:
+```bash
+sudo mkdir -p /etc/systemd/user/gvfs-gphoto2-volume-monitor.service.d/
+sudo tee /etc/systemd/user/gvfs-gphoto2-volume-monitor.service.d/override.conf << 'EOF'
+[Unit]
+ConditionPathExists=/nonexistent
+EOF
+```
+
+> Production แนะนำใช้ **Raspberry Pi OS Lite** (ไม่มี gvfs ตั้งแต่แรก ไม่ต้อง patch)
+
+### Gotcha 2: Hook script ต้องใช้ env vars ไม่ใช่ positional args
+
+`$1`, `$2` ใน hook script จะเป็น empty string เสมอ — gphoto2 ส่งค่าผ่าน:
+- `$ACTION` = `init` | `start` | `download` | `stop`
+- `$ARGUMENT` = path ของไฟล์ (เฉพาะตอน `ACTION=download`)
+
+### Gotcha 3: Canon EOS RP ไม่ชาร์จผ่าน USB-C ตอน tether กับ Pi
+
+ต้องใช้ **dummy battery DR-E18 + power bank** สำหรับงานยาว (4-6 ชม.)
 
 ---
 
