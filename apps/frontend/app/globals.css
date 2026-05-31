@@ -1,9 +1,6 @@
-/* Cursor: Tailwind v4 base styles and minimal customizations */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4 — single import (replaces @tailwind base/components/utilities of v3) */
+@import "tailwindcss";
 
-/* Example customizations via CSS (Tailwind v4 prefers config via CSS layers) */
 @layer base {
   html, body, #__next {
     height: 100%;

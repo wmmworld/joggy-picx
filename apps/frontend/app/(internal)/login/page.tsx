@@ -1,13 +1,11 @@
 "use client";
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
 import { createClient } from "../../../lib/supabase";
 
 // Cursor: Login page for Internal Users (Admin/Staff) with Supabase Auth (D-019)
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,8 +29,9 @@ export default function LoginPage() {
         return;
       }
 
-      // Cursor: Redirect to dashboard on successful login
-      router.push("/dashboard");
+      // Claude: Hard navigation to ensure middleware sees fresh cookies on dashboard
+      // (router.push is a soft navigation — cookies may not sync to middleware in time)
+      window.location.href = "/dashboard";
     } catch (err) {
       setError("เกิดข้อผิดพลาด — โปรดลองอีกครั้ง");
     } finally {

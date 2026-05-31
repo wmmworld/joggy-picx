@@ -27,33 +27,57 @@ async def verify_internal_user(
     FastAPI Dependency สำหรับตรวจสอบ Internal User (Supabase Auth)
     """
     token = credentials.credentials
-    
+
     settings = get_settings()
-    try:
-        # Verify Supabase JWT ด้วย JWKS จาก SUPABASE_URL (รองรับ RS256)
-        # Supabase ใช้ JWT secret แบบ symmetric (HS256) — ดึงจาก Project Settings → API → JWT Secret
-        # ใช้ SUPABASE_SERVICE_ROLE_KEY เป็น signing secret (Supabase ใช้ HS256 ด้วย jwt_secret)
-        jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
-        jwks_client = jwt.PyJWKClient(jwks_url, cache_keys=True)
-        signing_key = jwks_client.get_signing_key_from_jwt(token)
-        payload = jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=["RS256", "HS256"],
-            audience="authenticated",
-        )
-        # ห้ามมี dev fallback ที่ verify_signature=False — ถ้า Supabase URL ไม่ถูกต้อง ให้ fail loud
-            
-    except jwt.ExpiredSignatureError:
+
+    # Claude (2026-05-31): Supabase ใช้ HS256 symmetric secret โดย default
+    # JWT secret หาได้ที่ Supabase Dashboard → Settings → API → JWT Secret
+    # ถ้า project ใหม่ใช้ asymmetric (RS256) ค่อย fallback ไป JWKS
+    payload = None
+    last_error: Exception | None = None
+
+    # Try 1: HS256 with jwt_secret (Supabase default)
+    if settings.supabase_jwt_secret:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token expired",
+            )
+        except Exception as e:
+            last_error = e  # fall through to RS256 attempt
+
+    # Try 2: Asymmetric via JWKS — ES256 (new Supabase) or RS256 (older)
+    rs256_error: Exception | None = None
+    if payload is None:
+        try:
+            jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
+            jwks_client = jwt.PyJWKClient(jwks_url, cache_keys=True)
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["ES256", "RS256"],
+                audience="authenticated",
+            )
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token expired",
+            )
+        except Exception as e:
+            rs256_error = e
+
+    if payload is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Token expired"
-        )
-    except Exception as e:
-        # ห้าม log token หรือรายละเอียด error ออกไปที่ผู้ใช้
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Invalid token"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
         )
 
     user_id_str = payload.get("sub")
