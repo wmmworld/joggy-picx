@@ -4,14 +4,14 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-05-29
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 4B complete: Review Queue backend + Cursor frontend ✅ TypeScript 0 errors
+วันที่อัปเดตล่าสุด: 2026-05-31
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 4C Photo Gallery backend ✅ (8 TDD tests, total 48/48) + Cursor prompt ready + Canon Pi tether validated
 
 ---
 
 ## 📍 Current Phase
 
-**Phase 4 — Frontend + Integration** | Phase 4B Review Queue ✅ complete | Next: Photo gallery + race-result.asia integration
+**Phase 4 — Frontend + Integration** | Phase 4B Review Queue ✅ + Phase 4C Photo Gallery backend ✅ | Next: Cursor builds gallery UI + race-result.asia integration
 
 > Phase 2 ✅ ปิดแล้ว (backend + migration + smoke test 7/7) — server start + smoke test ผ่านแล้ว
 
@@ -26,7 +26,8 @@ Phase 1 (✅ ปิดแล้ว):
 - [x] apps/frontend/ Next.js 15 scaffold (Cursor)
 - [x] Dependency research + D-021 ONNX-unified (Antigravity + Claude)
 - [x] CEO: ตั้ง Supabase project + enable pgvector + ตั้ง Cloudflare R2
-- [ ] CEO: ทดสอบ Canon FTP (ยังค้าง — ทำ parallel กับ Phase 2 ได้)
+- [x] **CEO: ทดสอบ Canon EOS RP tether — 2026-05-31 ✅** — Phase A (Windows digiCamControl) + Phase B (Pi 5 gphoto2 USB) ทั้ง 4 TC PASS, burst 2.5s/รูป; WiFi PTP/IP partial (Canon proprietary handshake) → ใช้ USB tether เป็น primary
+- [x] **D-002 revised 2026-05-29** — Canon EOS RP ไม่มี FTP → switch ไป USB-C tether + gphoto2 (Path A primary, Path C deferred)
 
 Milestone Day 3 (✅ เสร็จแล้ว):
 - [x] FastAPI app structure + SQLModel models (Claude)
@@ -97,8 +98,10 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 - **Milestone:** AI อ่าน bib + face re-ID ทำงาน — ⏳ backend พร้อม รอ validate กับ model จริง
 
 ### Phase 4 — Frontend + Integration (วันที่ 17–20)
+- [x] **Phase 4B Manual Review Queue** ✅ — backend (GET + PATCH, 8 tests) + Cursor frontend (event filter, bulk select, override bib, lightbox)
+- [x] **Phase 4C Photo Gallery backend** ✅ — `GET /internal/events/{id}/photos` paginated + filter (bib/checkpoint/ai_status), 8 TDD tests, total 48/48 backend tests passing
+- [ ] **Phase 4C Photo Gallery frontend** — Cursor task: prompt ที่ `docs/cursor-tasks/phase4c-photo-gallery-frontend.md`
 - [ ] End-to-end integration + bugfix (Claude)
-- [ ] Internal dashboard: photo gallery, manual review UI, organizer/event management (Cursor)
 - [ ] race-result.asia integration test (Pull API + signed URL) + load test 1,000 รูป (Antigravity)
 - [ ] Performance tuning + security check + Public API rate limit (Codex)
 - **Milestone:** race-result.asia ดึงรูปด้วยเลขบิบผ่าน Public API ได้จริง + Internal dashboard ใช้งานครบ

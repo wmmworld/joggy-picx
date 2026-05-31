@@ -23,6 +23,9 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] Phase 4C Task 3: `docs/cursor-tasks/phase4c-photo-gallery-frontend.md` — Cursor prompt for Photo Gallery UI: `useEventPhotos` hook + gallery page (grid 3-4 cols, debounced bib filter, checkpoint + AI status dropdowns, URL state, lightbox, pagination bar 1-N) + "ดูรูปภาพ" link in event detail (commit: c1606ee)
+- [Claude] Phase 4C Task 2: `GET /internal/events/{event_id}/photos` — paginated photo gallery endpoint with bib (ILIKE escape) + checkpoint_id + ai_status filters, `OUTER JOIN Checkpoint`, R2 signed URLs, `ORDER BY Photo.created_at DESC` + 8 TDD tests (paginated items, pagination metadata, no_checkpoint→None, invalid ai_status→422, event not found→404, per_page>100→422, combined filters, wildcard escape); full suite 48/48 ✅ (commits: 44311e2, 3355709)
+- [Claude] Phase 4C Task 1: `PhotoItemOut` + `EventPhotosOut` Pydantic schemas — `ai_review_status: Literal[...]`, `bib_number/bib_confidence/thumbnail_url/checkpoint_name/captured_at` nullable, pagination `Field(ge=...)` constraints (commits: d5dbc65, 37d694a)
 - [Cursor] Phase 4B: `apiPatch<T, B>` helper added to `apps/frontend/lib/api.ts` — identical to apiPost but uses PATCH method; auto JWT injection from Supabase
 - [Cursor] Phase 4B: `apps/frontend/hooks/useReviewQueue.ts` — types (ReviewQueueItem, ReviewActionPayload, ReviewActionResponse) + `useReviewQueue(eventId)` query hook + `useResolveItem()` mutation hook for approve/reject actions
 - [Cursor] Phase 4B: Full Review Queue page (`apps/frontend/app/(internal)/dashboard/review/page.tsx`) — event dropdown (useEvents), stats bar, bulk approve/reject (Promise.all), table (checkbox all, thumbnail + lightbox, bib override input, confidence badges, approve/reject buttons with loading state), optimistic updates (remove from items), toast notifications (auto-hide 3s), loading skeleton, empty states
