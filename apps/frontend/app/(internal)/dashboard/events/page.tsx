@@ -18,6 +18,11 @@ export default function EventsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Claude: Back to dashboard */}
+      <Link href="/dashboard" className="text-sky-600 hover:underline text-sm">
+        ← Dashboard
+      </Link>
+
       {/* Cursor: Header section + Create button */}
       <div className="flex justify-between items-start">
         <div>

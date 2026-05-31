@@ -262,6 +262,39 @@ async def update_event_status(
     )
 
 
+@router.delete(
+    "/events/{event_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_event(
+    event_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    claims: InternalUserClaims = Depends(verify_internal_user),
+) -> None:
+    """
+    Delete an event — admin only. Cascades to all related rows
+    (photos, checkpoints, event_tokens, face_embeddings, review_queue, etc.)
+    via DB FK ON DELETE CASCADE.
+
+    ⚠️ R2 objects are NOT automatically deleted — orphaned files remain
+    until retention policy cleanup. For MVP this is acceptable.
+    """
+    _ensure_admin(claims)
+    event = await _get_event_or_404(db, event_id)
+
+    db.add(AuditLog(
+        actor_kind=ActorKind.internal_user,
+        actor_app_user_id=claims.user_id,
+        action="event_deleted",
+        target_kind="event",
+        target_id=event.id,
+        context={"event_name": event.name, "status": event.status.value if hasattr(event.status, "value") else str(event.status)},
+    ))
+    await db.delete(event)
+    await db.commit()
+    return None
+
+
 @router.post(
     "/organizers/{organizer_id}/keys",
     response_model=PartnerKeyOut,

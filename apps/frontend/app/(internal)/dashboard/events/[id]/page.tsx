@@ -1,17 +1,40 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEventDetail } from "../../../../../hooks/useEventDetail";
 import { formatThaiDateTime } from "../../../../../lib/datetime";
+import { apiDelete } from "../../../../../lib/api";
 
 // Cursor: Event detail page with custom hook (Phase 2)
 export default function EventDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const eventId = params.id as string;
 
   // Cursor: Use custom hook for event detail
   const { data: event, isLoading, error } = useEventDetail(eventId || null);
+
+  // Claude: Delete state — show confirm dialog before actual delete
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    const result = await apiDelete(`/internal/events/${eventId}`);
+    setDeleting(false);
+    if (!result.success) {
+      setDeleteError(result.error || "ลบไม่สำเร็จ");
+      return;
+    }
+    // Invalidate events list + navigate back
+    queryClient.invalidateQueries({ queryKey: ["events"] });
+    router.push("/dashboard/events");
+  };
 
   if (isLoading) {
     return (
@@ -52,10 +75,16 @@ export default function EventDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Cursor: Back button + header */}
-      <Link href="/dashboard/events" className="text-sky-600 hover:underline text-sm">
-        ← กลับไปยังรายการงาน
-      </Link>
+      {/* Claude: Top navigation — Dashboard + Events list */}
+      <div className="flex items-center gap-3 text-sm">
+        <Link href="/dashboard" className="text-sky-600 hover:underline">
+          ← Dashboard
+        </Link>
+        <span className="text-slate-300">/</span>
+        <Link href="/dashboard/events" className="text-sky-600 hover:underline">
+          รายการงาน
+        </Link>
+      </div>
 
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-start">
@@ -137,12 +166,70 @@ export default function EventDetailPage() {
         </div>
       )}
 
-      {/* Cursor: Action buttons placeholder (Phase 3) */}
+      {/* Claude: Action buttons */}
       <div className="flex gap-2">
-        <button className="px-4 py-2 bg-slate-200 text-slate-700 rounded hover:bg-slate-300">
+        <button
+          disabled
+          title="กำลังพัฒนา"
+          className="px-4 py-2 bg-slate-200 text-slate-500 rounded cursor-not-allowed"
+        >
           แก้ไขงาน
         </button>
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          🗑️ ลบงาน
+        </button>
       </div>
+
+      {/* Claude: Delete confirmation dialog */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => !deleting && setShowDeleteConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold mb-2">ยืนยันการลบงาน</h2>
+            <p className="text-slate-600 mb-2">
+              คุณกำลังจะลบ <strong>{event.name}</strong>
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4 text-sm text-red-700">
+              ⚠️ การลบจะลบข้อมูลทั้งหมดที่เกี่ยวข้องอย่างถาวร:
+              <ul className="list-disc list-inside mt-1">
+                <li>รูปภาพทั้งหมดของงานนี้</li>
+                <li>Checkpoints + Event Tokens</li>
+                <li>Review Queue + Face Embeddings</li>
+              </ul>
+              ไม่สามารถกู้คืนได้
+            </div>
+            {deleteError && (
+              <div className="bg-red-100 border border-red-300 rounded p-2 mb-3 text-sm text-red-800">
+                {deleteError}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded hover:bg-slate-200 disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? "กำลังลบ..." : "ยืนยันลบ"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

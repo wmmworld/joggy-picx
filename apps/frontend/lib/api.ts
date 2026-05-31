@@ -90,6 +90,42 @@ export async function apiPost<T, B = unknown>(
   }
 }
 
+// Claude: DELETE helper with auth
+export async function apiDelete(endpoint: string): Promise<ApiResponse<null>> {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session }
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.detail || `HTTP ${response.status}`
+      };
+    }
+
+    return { success: true, data: null };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error"
+    };
+  }
+}
+
 // Cursor: PATCH helper with auth + payload (Phase 4B Review Queue)
 export async function apiPatch<T, B = unknown>(
   endpoint: string,
