@@ -16,7 +16,7 @@ from typing import Optional
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, Text
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PG_UUID
 
 
 def _enum_col(enum_cls, *, nullable: bool = False, default=None):
@@ -390,7 +390,11 @@ class AuditLog(SQLModel, table=True):
     actor_kind: ActorKind = Field(sa_column=_enum_col(ActorKind))
     action: str  # upload | delete | erasure | review_approve | key_revoke | ...
     target_kind: str  # photo | event | organizer | face_embedding | ...
-    target_id: Optional[uuid.UUID] = None
+    # Claude: DB column is `target_id_nullable` (migration); expose as `target_id` in Python
+    target_id: Optional[uuid.UUID] = Field(
+        default=None,
+        sa_column=Column("target_id_nullable", PG_UUID(as_uuid=True), nullable=True),
+    )
     context: Optional[dict] = Field(
         default=None, sa_column=Column(JSONB)
     )  # ip, ua, scope, event_id, etc.
