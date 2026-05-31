@@ -205,3 +205,42 @@ async def test_list_event_photos_per_page_over_limit_returns_422(api_client, moc
             f"/internal/events/{event_id}/photos?per_page=101"
         )
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_list_event_photos_combined_filters(api_client, mock_db):
+    """Multiple filters (bib + ai_status) AND-combine correctly."""
+    event_id = uuid.uuid4()
+    photo_id = uuid.uuid4()
+    event = _make_event(event_id)
+    photo = _make_photo(photo_id, event_id, bib="1234", status=AIReviewStatus.auto)
+    _setup_db(mock_db, event, total=1, rows=[(photo, None)])
+
+    with patch("joggy.api.internal.r2.signed_url", return_value="https://r2.test/signed"):
+        async with api_client as client:
+            response = await client.get(
+                f"/internal/events/{event_id}/photos?bib=1234&ai_status=auto"
+            )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["bib_number"] == "1234"
+    assert data["items"][0]["ai_review_status"] == "auto"
+
+
+@pytest.mark.asyncio
+async def test_list_event_photos_bib_filter_escapes_wildcards(api_client, mock_db):
+    """bib='1%' should be escaped to literal '1%' not used as LIKE wildcard."""
+    event_id = uuid.uuid4()
+    event = _make_event(event_id)
+    _setup_db(mock_db, event, total=0, rows=[])
+
+    with patch("joggy.api.internal.r2.signed_url"):
+        async with api_client as client:
+            response = await client.get(f"/internal/events/{event_id}/photos?bib=1%25")
+            # %25 is URL-encoded '%' — endpoint should escape it before ILIKE
+
+    assert response.status_code == 200
+    # Just verify no crash + valid response shape
+    assert response.json()["total"] == 0

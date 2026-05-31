@@ -463,7 +463,8 @@ async def list_event_photos(
     # Build WHERE conditions
     conditions: list = [Photo.event_id == event_id]
     if bib:
-        conditions.append(Photo.bib_number_nullable.ilike(f"%{bib}%"))
+        escaped_bib = bib.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        conditions.append(Photo.bib_number_nullable.ilike(f"%{escaped_bib}%", escape="\\"))
     if checkpoint_id:
         conditions.append(Photo.checkpoint_id == checkpoint_id)
     if ai_status_enum is not None:
