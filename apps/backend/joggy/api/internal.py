@@ -9,10 +9,11 @@ import secrets
 import uuid
 from datetime import datetime, timezone
 from datetime import timedelta
+from math import ceil
 
 import argon2
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, and_
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from joggy.api.schemas import (
@@ -23,6 +24,8 @@ from joggy.api.schemas import (
     PartnerKeyOut,
     ReviewQueueItemOut,
     ReviewAction,
+    PhotoItemOut,
+    EventPhotosOut,
 )
 from joggy.db.models import (
     Checkpoint, Event, EventStatus, Organizer, PartnerApiKey,
@@ -423,3 +426,90 @@ async def resolve_review_queue(
 
     await db.commit()
     return {"status": rq.status.value, "queue_id": str(rq.id)}
+
+
+# ── Photo Gallery ─────────────────────────────────────────────────────────────
+
+@router.get(
+    "/events/{event_id}/photos",
+    response_model=EventPhotosOut,
+    status_code=status.HTTP_200_OK,
+)
+async def list_event_photos(
+    event_id: uuid.UUID,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=24, ge=1, le=100),
+    bib: str | None = Query(default=None),
+    checkpoint_id: uuid.UUID | None = Query(default=None),
+    ai_status: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    claims: InternalUserClaims = Depends(verify_internal_user),
+) -> EventPhotosOut:
+    """Paginated photo gallery for an event — filter by bib/checkpoint/ai_status."""
+    event = await _get_event_or_404(db, event_id)
+    _ensure_staff_event_access(claims, event)
+
+    # Validate ai_status query param
+    ai_status_enum: AIReviewStatus | None = None
+    if ai_status is not None:
+        try:
+            ai_status_enum = AIReviewStatus(ai_status)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid ai_status '{ai_status}'. Valid: auto, manual_pending, manual_approved, manual_rejected",
+            )
+
+    # Build WHERE conditions
+    conditions: list = [Photo.event_id == event_id]
+    if bib:
+        conditions.append(Photo.bib_number_nullable.ilike(f"%{bib}%"))
+    if checkpoint_id:
+        conditions.append(Photo.checkpoint_id == checkpoint_id)
+    if ai_status_enum is not None:
+        conditions.append(Photo.ai_review_status == ai_status_enum)
+
+    # Count total matching records
+    count_stmt = select(func.count(Photo.id)).where(and_(*conditions))
+    total: int = (await db.execute(count_stmt)).scalar_one()
+
+    # Fetch paginated results with checkpoint join
+    stmt = (
+        select(Photo, Checkpoint)
+        .outerjoin(Checkpoint, Checkpoint.id == Photo.checkpoint_id)
+        .where(and_(*conditions))
+        .order_by(Photo.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    # Build response items
+    items = []
+    for photo, checkpoint in rows:
+        key = photo.r2_key_thumbnail or photo.r2_key_original
+        url = r2.signed_url(key, expires_in=3600)
+        items.append(
+            PhotoItemOut(
+                photo_id=photo.id,
+                bib_number=photo.bib_number_nullable,
+                bib_confidence=photo.bib_confidence,
+                ai_review_status=(
+                    photo.ai_review_status.value
+                    if hasattr(photo.ai_review_status, "value")
+                    else str(photo.ai_review_status)
+                ),
+                thumbnail_url=url,
+                checkpoint_name=checkpoint.name if checkpoint else None,
+                captured_at=photo.captured_at,
+            )
+        )
+
+    pages = max(1, ceil(total / per_page))
+    return EventPhotosOut(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=pages,
+    )
