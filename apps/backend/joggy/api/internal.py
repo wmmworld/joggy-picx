@@ -20,6 +20,7 @@ from joggy.api.schemas import (
     EventCreate,
     EventOut,
     EventStatusUpdate,
+    EventUpdate,
     PartnerKeyCreate,
     PartnerKeyOut,
     ReviewQueueItemOut,
@@ -213,21 +214,48 @@ async def get_event_detail(
 
 
 @router.patch("/events/{event_id}", response_model=EventOut, status_code=status.HTTP_200_OK)
-async def update_event_status(
+async def update_event(
     event_id: uuid.UUID,
-    payload: EventStatusUpdate,
+    payload: EventUpdate,
     db: AsyncSession = Depends(get_db),
     claims: InternalUserClaims = Depends(verify_internal_user),
 ) -> EventOut:
+    """
+    Update event — supports partial edit (any subset of fields).
+    status transition is validated; other fields update directly.
+    """
     event = await _get_event_or_404(db, event_id)
     _ensure_staff_event_access(claims, event)
 
-    current = event.status.value if hasattr(event.status, "value") else str(event.status)
-    next_status = payload.status
-    if not _allowed_event_transition(current, next_status):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid event status transition")
+    # Status transition (if provided)
+    if payload.status is not None:
+        current = event.status.value if hasattr(event.status, "value") else str(event.status)
+        if not _allowed_event_transition(current, payload.status):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid event status transition")
+        event.status = EventStatus(payload.status)
 
-    event.status = EventStatus(next_status)
+    # Direct field updates
+    if payload.name is not None:
+        event.name = payload.name
+    if payload.allowed_origins is not None:
+        event.allowed_origins = payload.allowed_origins
+
+    # Datetime fields — strip tzinfo (DB column is TIMESTAMP WITHOUT TIME ZONE)
+    def _to_naive_utc(dt: datetime) -> datetime:
+        if dt.tzinfo is not None:
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+
+    new_start = _to_naive_utc(payload.start_at) if payload.start_at else event.start_at
+    new_end = _to_naive_utc(payload.end_at) if payload.end_at else event.end_at
+    if new_end <= new_start:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="end_at must be after start_at")
+    event.start_at = new_start
+    event.end_at = new_end
+    # Recompute retention if end_at changed
+    if payload.end_at is not None:
+        event.retention_until = new_end + timedelta(days=30)
+
     db.add(event)
     await db.flush()
     await db.refresh(event)

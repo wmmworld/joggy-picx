@@ -21,6 +21,16 @@ class EventStatusUpdate(BaseModel):
     status: str
 
 
+# Claude: PATCH payload — full edit (all fields optional). status uses same
+# transition validation as EventStatusUpdate.
+class EventUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    status: str | None = None
+    allowed_origins: dict | None = None
+
+
 # Codex: response ของ checkpoint ใน event detail
 class CheckpointOut(BaseModel):
     id: uuid.UUID

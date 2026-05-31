@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEventDetail } from "../../../../../hooks/useEventDetail";
 import { formatThaiDateTime } from "../../../../../lib/datetime";
 import { apiDelete } from "../../../../../lib/api";
+import EditEventModal from "../../../../../components/events/EditEventModal";
 
 // Cursor: Event detail page with custom hook (Phase 2)
 export default function EventDetailPage() {
@@ -17,7 +18,8 @@ export default function EventDetailPage() {
   // Cursor: Use custom hook for event detail
   const { data: event, isLoading, error } = useEventDetail(eventId || null);
 
-  // Claude: Delete state — show confirm dialog before actual delete
+  // Claude: Edit + Delete state
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -169,11 +171,10 @@ export default function EventDetailPage() {
       {/* Claude: Action buttons */}
       <div className="flex gap-2">
         <button
-          disabled
-          title="กำลังพัฒนา"
-          className="px-4 py-2 bg-slate-200 text-slate-500 rounded cursor-not-allowed"
+          onClick={() => setShowEditModal(true)}
+          className="px-4 py-2 bg-slate-100 text-slate-700 rounded hover:bg-slate-200 border border-slate-300"
         >
-          แก้ไขงาน
+          ✏️ แก้ไขงาน
         </button>
         <button
           onClick={() => setShowDeleteConfirm(true)}
@@ -182,6 +183,20 @@ export default function EventDetailPage() {
           🗑️ ลบงาน
         </button>
       </div>
+
+      {/* Claude: Edit modal */}
+      {showEditModal && (
+        <EditEventModal
+          isOpen={showEditModal}
+          event={event}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["event", eventId] });
+            queryClient.invalidateQueries({ queryKey: ["events"] });
+            setShowEditModal(false);
+          }}
+        />
+      )}
 
       {/* Claude: Delete confirmation dialog */}
       {showDeleteConfirm && (
