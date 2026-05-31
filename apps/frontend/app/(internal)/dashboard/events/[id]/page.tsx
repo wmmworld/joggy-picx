@@ -78,6 +78,16 @@ export default function EventDetailPage() {
 
         {/* Claude: event.description not in EventOut — Phase 3+ field, omit for now */}
 
+        {/* Cursor: Photo Gallery link button — Phase 4C */}
+        <div className="mt-4">
+          <Link
+            href={`/dashboard/events/${eventId}/photos`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm font-medium"
+          >
+            📷 ดูรูปภาพ
+          </Link>
+        </div>
+
         {/* Cursor: Event timeline */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 pt-6 border-t">
           <div>
@@ -134,9 +144,6 @@ export default function EventDetailPage() {
 
       {/* Cursor: Action buttons placeholder (Phase 3) */}
       <div className="flex gap-2">
-        <button className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700">
-          ดูรูปภาพ
-        </button>
         <button className="px-4 py-2 bg-slate-200 text-slate-700 rounded hover:bg-slate-300">
           แก้ไขงาน
         </button>

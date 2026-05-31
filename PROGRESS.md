@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-05-31
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 4C Photo Gallery backend ✅ (8 TDD tests, total 48/48) + Cursor prompt ready + Canon Pi tether validated
+ผู้อัปเดตล่าสุด: Cursor (Frontend Specialist) — Phase 4C Photo Gallery frontend ✅ (Tasks A, B, C — useEventPhotos hook + gallery page + event detail link, tsc 0 errors)
 
 ---
 
@@ -154,6 +154,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-05-31 (Phase 4C — Photo Gallery Frontend)
+- [Cursor] Phase 4C Tasks A, B, C ✅ — `hooks/useEventPhotos.ts` created (PhotoItem, EventPhotosResponse, PhotoFilters types + useEventPhotos hook with URL state) + `photos/page.tsx` full gallery page: URL state management (useSearchParams/useRouter), debounced bib filter (300ms), checkpoint + AI status dropdowns, photo grid (3 cols mobile / 4 cols md+), ConfidenceBadge + AIStatusBadge components, pagination bar (1-N with ellipsis), lightbox modal, loading skeleton, empty states + Event detail page: added "📷 ดูรูปภาพ" Link button — tsc 0 errors ✅
 
 ### 2026-05-29 (Phase 4B — Manual Review Queue)
 - [Cursor] Phase 4B Tasks A, B, C ✅ — `apiPatch` helper added to `lib/api.ts` + `hooks/useReviewQueue.ts` created (types + hooks) + `review/page.tsx` full implementation: event dropdown, stats bar, bulk actions, table (checkbox, thumbnail, bib override input, confidence badges, approve/reject buttons), lightbox modal, toast notifications, optimistic updates
