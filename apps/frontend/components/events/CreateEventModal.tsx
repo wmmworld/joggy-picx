@@ -27,9 +27,11 @@ const EMPTY_FORM: FormState = {
   allowed_origins: ""
 };
 
-// Cursor: แปลง datetime-local string → ISO UTC string (UTC naive)
+// Claude: แปลง datetime-local string → ISO UTC string
+// datetime-local input ให้ "YYYY-MM-DDTHH:mm" ใน user's local time
+// new Date() parse เป็น local; .toISOString() output เป็น UTC with Z
 function toISOString(localDatetime: string): string {
-  return localDatetime + ":00.000Z";
+  return new Date(localDatetime).toISOString();
 }
 
 // Cursor: Event Create Modal component — ไม่ใช้ shadcn Dialog, build เอง

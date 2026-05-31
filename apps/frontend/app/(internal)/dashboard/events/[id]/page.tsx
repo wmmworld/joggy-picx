@@ -3,6 +3,7 @@ import React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEventDetail } from "../../../../../hooks/useEventDetail";
+import { formatThaiDateTime } from "../../../../../lib/datetime";
 
 // Cursor: Event detail page with custom hook (Phase 2)
 export default function EventDetailPage() {
@@ -93,19 +94,13 @@ export default function EventDetailPage() {
           <div>
             <p className="text-slate-500 text-sm">เริ่มต้น</p>
             <p className="font-semibold">
-              {new Date(event.start_at).toLocaleString("th-TH", {
-                dateStyle: "short",
-                timeStyle: "short"
-              })}
+              {formatThaiDateTime(event.start_at)}
             </p>
           </div>
           <div>
             <p className="text-slate-500 text-sm">สิ้นสุด</p>
             <p className="font-semibold">
-              {new Date(event.end_at).toLocaleString("th-TH", {
-                dateStyle: "short",
-                timeStyle: "short"
-              })}
+              {formatThaiDateTime(event.end_at)}
             </p>
           </div>
           <div>

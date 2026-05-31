@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEvents } from "../../../../hooks/useEvents";
 import CreateEventModal from "../../../../components/events/CreateEventModal";
+import { formatThaiDateTime } from "../../../../lib/datetime";
 
 // Cursor: Event list page with create modal (Phase 2 Day 5)
 export default function EventsPage() {
@@ -102,23 +103,11 @@ export default function EventsPage() {
                       <div className="space-y-1">
                         <p>
                           เริ่ม:{" "}
-                          {new Date(event.start_at).toLocaleString("th-TH-u-ca-gregory", {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
+                          {formatThaiDateTime(event.start_at)}
                         </p>
                         <p>
                           สิ้นสุด:{" "}
-                          {new Date(event.end_at).toLocaleString("th-TH-u-ca-gregory", {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
+                          {formatThaiDateTime(event.end_at)}
                         </p>
                       </div>
                     </td>
