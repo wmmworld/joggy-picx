@@ -15,7 +15,18 @@ from typing import Optional
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, Text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+
+
+def _enum_col(enum_cls, *, nullable: bool = False, default=None):
+    """SQLAlchemy column for Python Enum stored as VARCHAR (not native PG ENUM).
+    Migration created these columns as TEXT, so native_enum=False is required."""
+    return Column(
+        SAEnum(enum_cls, native_enum=False, length=32, validate_strings=True),
+        nullable=nullable,
+        default=default,
+    )
 from sqlmodel import Field, SQLModel
 
 
@@ -89,7 +100,10 @@ class Organizer(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field(index=True)
     contact_email: str
-    integration_mode: IntegrationMode = Field(default=IntegrationMode.pull)
+    integration_mode: IntegrationMode = Field(
+        default=IntegrationMode.pull,
+        sa_column=_enum_col(IntegrationMode, default=IntegrationMode.pull.value),
+    )
     pull_config: Optional[dict] = Field(
         default=None, sa_column=Column(JSONB)
     )
@@ -112,7 +126,10 @@ class Event(SQLModel, table=True):
     name: str
     start_at: datetime
     end_at: datetime
-    status: EventStatus = Field(default=EventStatus.planned)
+    status: EventStatus = Field(
+        default=EventStatus.planned,
+        sa_column=_enum_col(EventStatus, default=EventStatus.planned.value),
+    )
     allowed_origins: Optional[dict] = Field(default=None, sa_column=Column(JSONB))
     retention_until: Optional[datetime] = Field(default=None)  # computed: end_at + 30d
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -126,7 +143,10 @@ class Checkpoint(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     event_id: uuid.UUID = Field(foreign_key="events.id", index=True)
     name: str
-    kind: CheckpointKind = Field(default=CheckpointKind.other)
+    kind: CheckpointKind = Field(
+        default=CheckpointKind.other,
+        sa_column=_enum_col(CheckpointKind, default=CheckpointKind.other.value),
+    )
     lat: Optional[float] = None
     lng: Optional[float] = None
     seq_order: int = Field(default=0)
@@ -161,7 +181,10 @@ class Photo(SQLModel, table=True):
     bib_confidence: Optional[float] = None
     gender_nullable: Optional[str] = None  # ตรงกับ migration column name
     gender_confidence: Optional[float] = None
-    ai_review_status: AIReviewStatus = Field(default=AIReviewStatus.auto)
+    ai_review_status: AIReviewStatus = Field(
+        default=AIReviewStatus.auto,
+        sa_column=_enum_col(AIReviewStatus, default=AIReviewStatus.auto.value),
+    )
     retention_until: Optional[datetime] = None  # computed: event.end_at + 30d
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -201,7 +224,10 @@ class ReviewQueue(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     photo_id: uuid.UUID = Field(foreign_key="photos.id", unique=True)
     reason: str  # low_ocr_conf | no_bib | ambiguous_face | other
-    status: ReviewQueueStatus = Field(default=ReviewQueueStatus.pending)
+    status: ReviewQueueStatus = Field(
+        default=ReviewQueueStatus.pending,
+        sa_column=_enum_col(ReviewQueueStatus, default=ReviewQueueStatus.pending.value),
+    )
     assigned_to: Optional[uuid.UUID] = Field(
         default=None, foreign_key="app_users.id"
     )
@@ -263,7 +289,10 @@ class AppUser(SQLModel, table=True):
 
     # PK = FK ไปยัง auth.users(id) ของ Supabase
     id: uuid.UUID = Field(primary_key=True)
-    role: UserRole = Field(default=UserRole.staff)
+    role: UserRole = Field(
+        default=UserRole.staff,
+        sa_column=_enum_col(UserRole, default=UserRole.staff.value),
+    )
     display_name: str
     mfa_enrolled: bool = Field(default=False)
     invited_by: Optional[uuid.UUID] = Field(
@@ -326,7 +355,15 @@ class ErasureRequest(SQLModel, table=True):
         foreign_key="partner_api_keys.id"
     )
     reason: Optional[str] = None
-    status: ErasureStatus = Field(default=ErasureStatus.pending, index=True)
+    status: ErasureStatus = Field(
+        default=ErasureStatus.pending,
+        sa_column=Column(
+            SAEnum(ErasureStatus, native_enum=False, length=32, validate_strings=True),
+            nullable=False,
+            default=ErasureStatus.pending.value,
+            index=True,
+        ),
+    )
     requested_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
     sla_deadline: Optional[datetime] = None  # = requested_at + 24h
@@ -350,7 +387,7 @@ class AuditLog(SQLModel, table=True):
     actor_event_token_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="event_tokens.id"
     )
-    actor_kind: ActorKind
+    actor_kind: ActorKind = Field(sa_column=_enum_col(ActorKind))
     action: str  # upload | delete | erasure | review_approve | key_revoke | ...
     target_kind: str  # photo | event | organizer | face_embedding | ...
     target_id: Optional[uuid.UUID] = None

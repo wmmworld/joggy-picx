@@ -102,16 +102,22 @@ export default function EventsPage() {
                       <div className="space-y-1">
                         <p>
                           เริ่ม:{" "}
-                          {new Date(event.start_at).toLocaleString("th-TH", {
-                            dateStyle: "short",
-                            timeStyle: "short"
+                          {new Date(event.start_at).toLocaleString("th-TH-u-ca-gregory", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit"
                           })}
                         </p>
                         <p>
                           สิ้นสุด:{" "}
-                          {new Date(event.end_at).toLocaleString("th-TH", {
-                            dateStyle: "short",
-                            timeStyle: "short"
+                          {new Date(event.end_at).toLocaleString("th-TH-u-ca-gregory", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit"
                           })}
                         </p>
                       </div>

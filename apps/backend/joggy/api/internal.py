@@ -134,14 +134,23 @@ async def create_event(
     if not organizer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organizer not found")
 
+    # Claude: strip tzinfo — DB columns are TIMESTAMP WITHOUT TIME ZONE (UTC naive).
+    # Frontend sends ISO strings with offset (e.g. +07:00); convert to UTC then drop tz.
+    def _to_naive_utc(dt: datetime) -> datetime:
+        if dt.tzinfo is not None:
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+
+    start_at = _to_naive_utc(payload.start_at)
+    end_at = _to_naive_utc(payload.end_at)
     # Codex: retention default 30 วันหลังจบงานตาม schema docs
-    retention_until = payload.end_at + timedelta(days=30)
+    retention_until = end_at + timedelta(days=30)
 
     event = Event(
         organizer_id=payload.organizer_id,
         name=payload.name,
-        start_at=payload.start_at,
-        end_at=payload.end_at,
+        start_at=start_at,
+        end_at=end_at,
         status=EventStatus.planned,
         allowed_origins=payload.allowed_origins,
         retention_until=retention_until,
