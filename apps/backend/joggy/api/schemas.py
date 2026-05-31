@@ -97,7 +97,7 @@ class PhotoItemOut(BaseModel):
     photo_id: uuid.UUID
     bib_number: str | None        # Photo.bib_number_nullable
     bib_confidence: float | None  # 0.0–1.0 or None when no bib detected
-    ai_review_status: str         # enum value: auto|manual_pending|manual_approved|manual_rejected
+    ai_review_status: Literal["auto", "manual_pending", "manual_approved", "manual_rejected"]
     thumbnail_url: str | None     # R2 signed URL (expires 1h); None if no key available
     checkpoint_name: str | None
     captured_at: datetime | None
@@ -106,7 +106,7 @@ class PhotoItemOut(BaseModel):
 class EventPhotosOut(BaseModel):
     """Paginated photo gallery response."""
     items: list[PhotoItemOut]
-    total: int     # total matching records (for pagination UI)
-    page: int
-    per_page: int
-    pages: int     # ceil(total / per_page)
+    total: int = Field(ge=0)         # total matching records
+    page: int = Field(ge=1)
+    per_page: int = Field(ge=1, le=100)
+    pages: int = Field(ge=1)         # ceil(total / per_page), min 1
