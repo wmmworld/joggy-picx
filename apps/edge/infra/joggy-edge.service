@@ -1,0 +1,18 @@
+[Unit]
+Description=Joggy-PicX Edge Uploader
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/joggy/apps/edge
+EnvironmentFile=/home/pi/joggy/.env
+ExecStart=/home/pi/joggy/.venv/bin/python -m joggy_edge
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
