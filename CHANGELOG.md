@@ -23,6 +23,7 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] Thumbnail generation: `apps/backend/joggy/services/thumbnail.py` — pure `generate_thumbnail()` (Pillow 400×400 q75) + `ThumbnailError`. Wired into `pipeline.py` between R2 download and AI inference. Best-effort — failures log WARNING but don't break the AI pipeline. Photo Gallery already falls back to original when `r2_key_thumbnail` is NULL. Adds `Pillow>=10.4` dep + 5 unit tests + 2 pipeline integration tests (55/55 total).
 - [Claude] Edge uploader (Pi 5): `apps/edge/joggy_edge/` package with:
   - `config.py` — EdgeSettings via pydantic-settings (.env loader, HttpUrl validation)
   - `uploader.py` — async `upload_file()` + `UploadOutcome` enum (UPLOADED/DUPLICATE/REJECTED/AUTH_FAILED) + `upload_with_retry()` with tenacity exponential backoff (5s→300s capped, `stop_never`) + stuck marker touch after N attempts

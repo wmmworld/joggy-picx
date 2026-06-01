@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-01
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Edge uploader (Pi → VPS) ✅ — inotify daemon, exponential retry, systemd service, 28 TDD tests
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Thumbnail generation ✅ — Pillow resize 400×400 in RQ worker, fast Photo Gallery loads (8 tests, 55/55 total)
 
 ---
 
@@ -105,7 +105,8 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 - [x] **Phase 4C Photo Gallery frontend** ✅ — Cursor: useEventPhotos hook + gallery page + event detail link, tsc 0 errors
 - [x] **Events CRUD frontend** ✅ — create modal + edit modal + delete with cascade-warning + back nav
 - [x] **Edge uploader (Pi → VPS)** ✅ — inotify daemon, tenacity retry, stuck marker, systemd service, 28 TDD tests
-- [ ] End-to-end real-photo smoke test (Canon → Pi → VPS → R2 → Dashboard)
+- [x] **End-to-end real-photo smoke test** ✅ 2026-06-01 — Canon EOS RP → Pi 5 → edge daemon → VPS → R2 → Dashboard (15 photos visible)
+- [x] **Thumbnail generation** ✅ — Pillow 400×400 q75 in pipeline.py (best-effort, ~100× smaller than originals), 7 new tests, 55/55 total
 - [ ] race-result.asia integration test (Pull API + signed URL) + load test 1,000 รูป (Antigravity)
 - [ ] Performance tuning + security check + Public API rate limit (Codex)
 - **Milestone:** race-result.asia ดึงรูปด้วยเลขบิบผ่าน Public API ได้จริง + Internal dashboard ใช้งานครบ
