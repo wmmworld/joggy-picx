@@ -248,3 +248,63 @@ async def test_existing_review_queue_not_duplicated(mock_db, photo, event):
     # Should NOT have added a new ReviewQueue
     added_types = [type(c.args[0]).__name__ for c in mock_db.add.call_args_list]
     assert added_types.count("ReviewQueue") == 0
+
+
+@pytest.mark.asyncio
+async def test_thumbnail_uploaded_and_key_written(mock_db, photo, event):
+    _setup_db_queries(mock_db, photo, event)
+    sessions = _make_sessions()
+    fake_img = np.zeros((100, 100, 3), dtype=np.uint8)
+
+    with patch("joggy.worker.pipeline.r2.download_bytes", return_value=b"jpg"), \
+         patch("joggy.worker.pipeline.cv2.imdecode", return_value=fake_img), \
+         patch("joggy.worker.pipeline.generate_thumbnail", return_value=b"thumb-bytes") as mock_thumb, \
+         patch("joggy.worker.pipeline.r2.upload_bytes") as mock_upload, \
+         patch("joggy.worker.pipeline.BibDetector") as MockDet, \
+         patch("joggy.worker.pipeline.BibOcr") as MockOcr, \
+         patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
+
+        MockDet.return_value.detect.return_value = None
+        MockOcr.return_value.read.return_value = None
+        MockEmbed.return_value.embed.return_value = None
+
+        await run_pipeline(str(photo.id), mock_db, sessions)
+
+    mock_thumb.assert_called_once_with(b"jpg")
+    mock_upload.assert_called_once()
+    upload_args = mock_upload.call_args
+    # First positional arg is the R2 key
+    thumb_key = upload_args.args[0]
+    assert thumb_key.startswith(f"events/{photo.event_id}/")
+    assert thumb_key.endswith("/thumbnail.jpg")
+    assert photo.r2_key_thumbnail == thumb_key
+
+
+@pytest.mark.asyncio
+async def test_thumbnail_failure_does_not_break_pipeline(mock_db, photo, event):
+    """ThumbnailError is caught, logged, pipeline continues. r2_key_thumbnail stays None."""
+    from joggy.services.thumbnail import ThumbnailError
+
+    _setup_db_queries(mock_db, photo, event)
+    sessions = _make_sessions()
+    fake_img = np.zeros((100, 100, 3), dtype=np.uint8)
+    photo.r2_key_thumbnail = None  # baseline
+
+    with patch("joggy.worker.pipeline.r2.download_bytes", return_value=b"jpg"), \
+         patch("joggy.worker.pipeline.cv2.imdecode", return_value=fake_img), \
+         patch("joggy.worker.pipeline.generate_thumbnail", side_effect=ThumbnailError("bad jpeg")), \
+         patch("joggy.worker.pipeline.r2.upload_bytes") as mock_upload, \
+         patch("joggy.worker.pipeline.BibDetector") as MockDet, \
+         patch("joggy.worker.pipeline.BibOcr") as MockOcr, \
+         patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
+
+        MockDet.return_value.detect.return_value = None
+        MockOcr.return_value.read.return_value = None
+        MockEmbed.return_value.embed.return_value = None
+
+        result = await run_pipeline(str(photo.id), mock_db, sessions)
+
+    mock_upload.assert_not_called()
+    assert photo.r2_key_thumbnail is None
+    # Pipeline still completed and returned a summary
+    assert result["photo_id"] == str(photo.id)
