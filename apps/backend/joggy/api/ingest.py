@@ -102,6 +102,9 @@ async def upload_photo(
     if captured_at:
         try:
             captured_dt = datetime.fromisoformat(captured_at)
+            # DB column is TIMESTAMP WITHOUT TIME ZONE — strip tzinfo
+            if captured_dt.tzinfo is not None:
+                captured_dt = captured_dt.astimezone(timezone.utc).replace(tzinfo=None)
         except ValueError:
             pass  # ignore malformed timestamp จากกล้อง
 
