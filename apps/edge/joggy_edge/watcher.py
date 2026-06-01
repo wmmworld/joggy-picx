@@ -143,3 +143,42 @@ async def consumer_loop(
         finally:
             queue.task_done()
             processed += 1
+
+
+from watchdog.events import FileCreatedEvent, FileSystemEventHandler
+from watchdog.observers import Observer
+
+
+async def startup_scan(inbox: Path, queue: "asyncio.Queue[Path]") -> None:
+    """Enqueue all existing image files in inbox (called once at daemon start)."""
+    for path in scan_inbox(inbox):
+        await queue.put(path)
+        logger.info("Startup scan enqueued: %s", path.name)
+
+
+class _Handler(FileSystemEventHandler):
+    """Translates watchdog FileCreatedEvent → queue.put_nowait via event loop."""
+
+    def __init__(self, loop: asyncio.AbstractEventLoop, queue: "asyncio.Queue[Path]") -> None:
+        super().__init__()
+        self._loop = loop
+        self._queue = queue
+
+    def on_created(self, event: FileCreatedEvent) -> None:  # type: ignore[override]
+        if getattr(event, "is_directory", False):
+            return
+        path = Path(str(event.src_path))
+        if not is_image_file(path):
+            return
+        self._loop.call_soon_threadsafe(self._queue.put_nowait, path)
+
+
+def start_observer(inbox: Path, queue: "asyncio.Queue[Path]", loop: asyncio.AbstractEventLoop) -> Observer:
+    """Start watchdog Observer; caller is responsible for stop() on shutdown."""
+    inbox.mkdir(parents=True, exist_ok=True)
+    handler = _Handler(loop=loop, queue=queue)
+    observer = Observer()
+    observer.schedule(handler, str(inbox), recursive=False)
+    observer.start()
+    logger.info("Observer started on %s", inbox)
+    return observer

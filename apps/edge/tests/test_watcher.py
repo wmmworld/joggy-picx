@@ -229,3 +229,48 @@ async def test_consumer_skips_when_size_unstable(settings_for_watch, monkeypatch
 
     upload_mock.assert_not_called()
     assert f.exists()  # left in inbox
+
+
+@pytest.mark.asyncio
+async def test_startup_scan_enqueues_existing_files(settings_for_watch):
+    from joggy_edge.watcher import startup_scan
+
+    inbox = Path(settings_for_watch.inbox_dir)
+    (inbox / "a.jpg").write_bytes(b"")
+    (inbox / "b.png").write_bytes(b"")
+    (inbox / "c.txt").write_bytes(b"")  # should be skipped
+
+    queue: asyncio.Queue[Path] = asyncio.Queue()
+    await startup_scan(inbox, queue)
+
+    enqueued = []
+    while not queue.empty():
+        enqueued.append(queue.get_nowait().name)
+    assert sorted(enqueued) == ["a.jpg", "b.png"]
+
+
+def test_make_handler_enqueues_image_create(settings_for_watch, tmp_path):
+    """FileCreatedEvent for image triggers queue.put_nowait."""
+    from joggy_edge.watcher import _Handler
+
+    loop_calls: list[Path] = []
+    class FakeLoop:
+        def call_soon_threadsafe(self, fn, *args):
+            fn(*args)
+    queue_calls: list[Path] = []
+    class FakeQueue:
+        def put_nowait(self, item):
+            queue_calls.append(item)
+
+    handler = _Handler(loop=FakeLoop(), queue=FakeQueue())  # type: ignore[arg-type]
+
+    class FakeEvent:
+        def __init__(self, src_path: str, is_directory: bool = False):
+            self.src_path = src_path
+            self.is_directory = is_directory
+
+    handler.on_created(FakeEvent(str(tmp_path / "img.jpg")))
+    handler.on_created(FakeEvent(str(tmp_path / "notes.txt")))  # not image
+    handler.on_created(FakeEvent(str(tmp_path), is_directory=True))  # directory
+
+    assert queue_calls == [Path(tmp_path / "img.jpg")]
