@@ -118,3 +118,52 @@ async def test_upload_multipart_includes_device_id(jpeg_file, settings):
     assert call_kwargs["data"]["device_id"] == "pi-001"
     assert "captured_at" in call_kwargs["data"]
     assert "file" in call_kwargs["files"]
+
+
+@pytest.mark.asyncio
+async def test_upload_with_retry_succeeds_after_5xx(jpeg_file, settings, tmp_path, monkeypatch):
+    """5xx response triggers retry; second attempt succeeds."""
+    monkeypatch.setattr(settings, "stuck_marker_path", str(tmp_path / "stuck"))
+    from joggy_edge.uploader import upload_with_retry
+
+    call_count = {"n": 0}
+
+    async def fake_upload(path, s):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise httpx.HTTPStatusError(
+                "500",
+                request=httpx.Request("POST", "https://vps.example/ingest/photos"),
+                response=_mock_response(500, {}),
+            )
+        return UploadResult(outcome=UploadOutcome.UPLOADED, photo_id="x", job_id="y")
+
+    with patch("joggy_edge.uploader.upload_file", side_effect=fake_upload), \
+         patch("joggy_edge.uploader._RETRY_WAIT_MULTIPLIER", 0.01):  # speed up test
+        result = await upload_with_retry(jpeg_file, settings)
+    assert result.outcome == UploadOutcome.UPLOADED
+    assert call_count["n"] == 2
+
+
+@pytest.mark.asyncio
+async def test_upload_with_retry_touches_stuck_marker_after_threshold(jpeg_file, settings, tmp_path, monkeypatch):
+    """After N failed attempts, stuck marker file is created."""
+    marker = tmp_path / "stuck"
+    monkeypatch.setattr(settings, "stuck_marker_path", str(marker))
+    monkeypatch.setattr(settings, "stuck_alert_threshold", 2)
+    from joggy_edge.uploader import upload_with_retry
+
+    call_count = {"n": 0}
+
+    async def fake_upload(path, s):
+        call_count["n"] += 1
+        if call_count["n"] < 4:
+            raise httpx.ConnectError("network down")
+        return UploadResult(outcome=UploadOutcome.UPLOADED, photo_id="x", job_id="y")
+
+    with patch("joggy_edge.uploader.upload_file", side_effect=fake_upload), \
+         patch("joggy_edge.uploader._RETRY_WAIT_MULTIPLIER", 0.01):
+        result = await upload_with_retry(jpeg_file, settings)
+    assert result.outcome == UploadOutcome.UPLOADED
+    # Marker should have been touched at some point (and may still exist)
+    assert marker.exists()

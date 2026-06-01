@@ -89,3 +89,50 @@ async def upload_file(path: Path, settings: EdgeSettings) -> UploadResult:
     response.raise_for_status()
     # If we reach here, it was an unexpected 2xx/3xx — treat as rejected
     return UploadResult(outcome=UploadOutcome.REJECTED, reason=f"Unexpected status {status}")
+
+
+from pathlib import Path as _Path
+
+from tenacity import (
+    AsyncRetrying,
+    retry_if_exception_type,
+    stop_never,
+    wait_exponential,
+)
+
+# Tunable multiplier (patched in tests for speed)
+_RETRY_WAIT_MULTIPLIER: float = 5.0
+
+
+async def upload_with_retry(path: Path, settings: EdgeSettings) -> UploadResult:
+    """Wrap upload_file with exponential retry on httpx errors.
+
+    Retries on httpx.HTTPError and TimeoutException; never stops (file stays
+    in inbox until success). After `stuck_alert_threshold` attempts, touches
+    the stuck marker file to alert ops.
+    """
+    attempt_no = 0
+
+    async for attempt in AsyncRetrying(
+        retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
+        wait=wait_exponential(multiplier=_RETRY_WAIT_MULTIPLIER, min=_RETRY_WAIT_MULTIPLIER, max=300),
+        stop=stop_never,
+        reraise=True,
+    ):
+        with attempt:
+            attempt_no += 1
+            if attempt_no == settings.stuck_alert_threshold:
+                try:
+                    _Path(settings.stuck_marker_path).touch()
+                    logger.warning(
+                        "STUCK: upload of %s failed %d times — touched %s",
+                        path.name,
+                        attempt_no - 1,
+                        settings.stuck_marker_path,
+                    )
+                except OSError as e:
+                    logger.error("Cannot touch stuck marker: %s", e)
+            return await upload_file(path, settings)
+
+    # Unreachable (stop_never), but satisfy type checker
+    raise RuntimeError("upload_with_retry exited unexpectedly")
