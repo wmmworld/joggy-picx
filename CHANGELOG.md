@@ -23,6 +23,15 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] Edge uploader (Pi 5): `apps/edge/joggy_edge/` package with:
+  - `config.py` — EdgeSettings via pydantic-settings (.env loader, HttpUrl validation)
+  - `uploader.py` — async `upload_file()` + `UploadOutcome` enum (UPLOADED/DUPLICATE/REJECTED/AUTH_FAILED) + `upload_with_retry()` with tenacity exponential backoff (5s→300s capped, `stop_never`) + stuck marker touch after N attempts
+  - `watcher.py` — watchdog Observer + asyncio.Queue consumer loop + file move helpers (`uploaded/YYYY-MM-DD/`, `failed/`) + extension filter + size-stability check + startup_scan + `AuthRequired` exception
+  - `__main__.py` — daemon entry with SIGTERM/SIGINT graceful shutdown + `asyncio.wait(FIRST_COMPLETED)` pattern; exit codes 0/1/2 for clean/auth-failed/crash
+  - `infra/joggy-edge.service` — systemd unit (User=pi, EnvironmentFile, Restart=on-failure)
+  - `.env.example` — config template with all required + optional fields documented
+  - 28 TDD tests: 4 config + 10 uploader + 14 watcher
+  - Full Pi deployment + dev smoke test guide in `apps/edge/README.md`
 - [Cursor] Phase 4C: `apps/frontend/hooks/useEventPhotos.ts` — PhotoItem + EventPhotosResponse + PhotoFilters types + `getEventPhotos()` async function + `useEventPhotos(eventId, filters)` TanStack Query hook with URL search params support (page, bib, checkpointId, aiStatus), staleTime 30s
 - [Cursor] Phase 4C: `apps/frontend/app/(internal)/dashboard/events/[id]/photos/page.tsx` — full photo gallery page: URL state management (useSearchParams, useRouter, useParams), filter bar (debounced bib input 300ms, checkpoint select from useEventDetail, AI status select, "ล้าง filter" button), photo grid (3 cols mobile / 4 cols md+), PhotoCard + ConfidenceBadge + AIStatusBadge inline components, pagination bar (← [1]...[N] →, max 7 buttons with ellipsis), lightbox modal (backdrop click to close), loading skeleton (8 cards), empty states ("ไม่พบรูปภาพ" + clear filter), stats bar (แสดง X–Y จาก Z รูป)
 - [Cursor] Phase 4C: `apps/frontend/app/(internal)/dashboard/events/[id]/page.tsx` — added "📷 ดูรูปภาพ" Link button (sky-600, after event name/status, before timeline) → navigates to `/dashboard/events/{id}/photos`

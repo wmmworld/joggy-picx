@@ -4,14 +4,16 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-05-31
-ผู้อัปเดตล่าสุด: Cursor (Frontend Specialist) — Phase 4C Photo Gallery frontend ✅ (Tasks A, B, C — useEventPhotos hook + gallery page + event detail link, tsc 0 errors)
+วันที่อัปเดตล่าสุด: 2026-06-01
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Edge uploader (Pi → VPS) ✅ — inotify daemon, exponential retry, systemd service, 28 TDD tests
 
 ---
 
 ## 📍 Current Phase
 
-**Phase 4 — Frontend + Integration** | Phase 4B Review Queue ✅ + Phase 4C Photo Gallery backend ✅ | Next: Cursor builds gallery UI + race-result.asia integration
+**Phase 4 — Frontend + Integration** | All sub-phases ✅ + Edge uploader ✅ | End-to-end ready: Canon → Pi → VPS → R2 → Dashboard
+
+> Next: real-photo smoke test, then Phase 4D race-result.asia integration or Phase 4E security/rate-limit
 
 > Phase 2 ✅ ปิดแล้ว (backend + migration + smoke test 7/7) — server start + smoke test ผ่านแล้ว
 
@@ -99,9 +101,11 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 
 ### Phase 4 — Frontend + Integration (วันที่ 17–20)
 - [x] **Phase 4B Manual Review Queue** ✅ — backend (GET + PATCH, 8 tests) + Cursor frontend (event filter, bulk select, override bib, lightbox)
-- [x] **Phase 4C Photo Gallery backend** ✅ — `GET /internal/events/{id}/photos` paginated + filter (bib/checkpoint/ai_status), 8 TDD tests, total 48/48 backend tests passing
-- [ ] **Phase 4C Photo Gallery frontend** — Cursor task: prompt ที่ `docs/cursor-tasks/phase4c-photo-gallery-frontend.md`
-- [ ] End-to-end integration + bugfix (Claude)
+- [x] **Phase 4C Photo Gallery backend** ✅ — `GET /internal/events/{id}/photos` paginated + filter (bib/checkpoint/ai_status), 8 TDD tests
+- [x] **Phase 4C Photo Gallery frontend** ✅ — Cursor: useEventPhotos hook + gallery page + event detail link, tsc 0 errors
+- [x] **Events CRUD frontend** ✅ — create modal + edit modal + delete with cascade-warning + back nav
+- [x] **Edge uploader (Pi → VPS)** ✅ — inotify daemon, tenacity retry, stuck marker, systemd service, 28 TDD tests
+- [ ] End-to-end real-photo smoke test (Canon → Pi → VPS → R2 → Dashboard)
 - [ ] race-result.asia integration test (Pull API + signed URL) + load test 1,000 รูป (Antigravity)
 - [ ] Performance tuning + security check + Public API rate limit (Codex)
 - **Milestone:** race-result.asia ดึงรูปด้วยเลขบิบผ่าน Public API ได้จริง + Internal dashboard ใช้งานครบ
