@@ -49,7 +49,9 @@ async def upload_file(path: Path, settings: EdgeSettings) -> UploadResult:
     headers = {
         "Authorization": f"Bearer {settings.event_token}",
     }
-    data = {
+    # device_id and captured_at are query params (FastAPI treats them as query
+    # params when mixed with UploadFile — not form data)
+    params = {
         "device_id": settings.device_id,
         "captured_at": _captured_at_iso(path),
     }
@@ -61,7 +63,7 @@ async def upload_file(path: Path, settings: EdgeSettings) -> UploadResult:
         response: httpx.Response = await client.post(
             str(settings.ingest_url),
             headers=headers,
-            data=data,
+            params=params,
             files=files,
         )
 
