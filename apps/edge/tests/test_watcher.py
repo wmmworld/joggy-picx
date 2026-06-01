@@ -120,3 +120,112 @@ def test_wait_for_stable_size_returns_false_when_growing(tmp_path, monkeypatch):
         lambda p: next(sizes, 99),
     )
     assert wait_for_stable_size(f, poll_interval=0.01, max_wait=0.05) is False
+
+
+import asyncio
+from unittest.mock import AsyncMock
+
+from joggy_edge.config import EdgeSettings
+from joggy_edge.uploader import UploadOutcome, UploadResult
+
+
+@pytest.fixture
+def settings_for_watch(tmp_path, monkeypatch):
+    monkeypatch.setenv("INGEST_URL", "https://vps.example/ingest/photos")
+    monkeypatch.setenv("EVENT_TOKEN", "evt")
+    monkeypatch.setenv("INBOX_DIR", str(tmp_path / "inbox"))
+    monkeypatch.setenv("UPLOADED_DIR", str(tmp_path / "uploaded"))
+    monkeypatch.setenv("FAILED_DIR", str(tmp_path / "failed"))
+    s = EdgeSettings(_env_file=None)  # type: ignore[call-arg]
+    for d in (s.inbox_dir, s.uploaded_dir, s.failed_dir):
+        Path(d).mkdir(parents=True, exist_ok=True)
+    return s
+
+
+@pytest.mark.asyncio
+async def test_consumer_uploaded_moves_to_uploaded_folder(settings_for_watch, monkeypatch):
+    from joggy_edge import watcher
+
+    f = Path(settings_for_watch.inbox_dir) / "good.jpg"
+    f.write_bytes(b"x")
+
+    monkeypatch.setattr(
+        watcher,
+        "upload_with_retry",
+        AsyncMock(return_value=UploadResult(outcome=UploadOutcome.UPLOADED, photo_id="p", job_id="j")),
+    )
+    monkeypatch.setattr(
+        watcher, "wait_for_stable_size", lambda p, **kw: True
+    )
+
+    queue: asyncio.Queue[Path] = asyncio.Queue()
+    await queue.put(f)
+
+    task = asyncio.create_task(watcher.consumer_loop(queue, settings_for_watch, stop_after=1))
+    await task
+
+    assert not f.exists()
+    assert any(Path(settings_for_watch.uploaded_dir).rglob("good.jpg"))
+
+
+@pytest.mark.asyncio
+async def test_consumer_rejected_moves_to_failed_folder(settings_for_watch, monkeypatch):
+    from joggy_edge import watcher
+
+    f = Path(settings_for_watch.inbox_dir) / "bad.jpg"
+    f.write_bytes(b"x")
+
+    monkeypatch.setattr(
+        watcher,
+        "upload_with_retry",
+        AsyncMock(return_value=UploadResult(outcome=UploadOutcome.REJECTED, reason="too large")),
+    )
+    monkeypatch.setattr(watcher, "wait_for_stable_size", lambda p, **kw: True)
+
+    queue: asyncio.Queue[Path] = asyncio.Queue()
+    await queue.put(f)
+    await watcher.consumer_loop(queue, settings_for_watch, stop_after=1)
+
+    assert not f.exists()
+    assert (Path(settings_for_watch.failed_dir) / "bad.jpg").exists()
+
+
+@pytest.mark.asyncio
+async def test_consumer_auth_failed_raises_authrequired(settings_for_watch, monkeypatch):
+    from joggy_edge import watcher
+    from joggy_edge.watcher import AuthRequired
+
+    f = Path(settings_for_watch.inbox_dir) / "x.jpg"
+    f.write_bytes(b"x")
+
+    monkeypatch.setattr(
+        watcher,
+        "upload_with_retry",
+        AsyncMock(return_value=UploadResult(outcome=UploadOutcome.AUTH_FAILED, reason="invalid")),
+    )
+    monkeypatch.setattr(watcher, "wait_for_stable_size", lambda p, **kw: True)
+
+    queue: asyncio.Queue[Path] = asyncio.Queue()
+    await queue.put(f)
+
+    with pytest.raises(AuthRequired):
+        await watcher.consumer_loop(queue, settings_for_watch, stop_after=1)
+
+
+@pytest.mark.asyncio
+async def test_consumer_skips_when_size_unstable(settings_for_watch, monkeypatch):
+    from joggy_edge import watcher
+
+    f = Path(settings_for_watch.inbox_dir) / "growing.jpg"
+    f.write_bytes(b"x")
+
+    upload_mock = AsyncMock()
+    monkeypatch.setattr(watcher, "upload_with_retry", upload_mock)
+    monkeypatch.setattr(watcher, "wait_for_stable_size", lambda p, **kw: False)
+
+    queue: asyncio.Queue[Path] = asyncio.Queue()
+    await queue.put(f)
+    await watcher.consumer_loop(queue, settings_for_watch, stop_after=1)
+
+    upload_mock.assert_not_called()
+    assert f.exists()  # left in inbox

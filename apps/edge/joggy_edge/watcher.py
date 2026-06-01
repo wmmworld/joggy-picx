@@ -86,3 +86,60 @@ def _resolve_collision(target: Path) -> Path:
         if not candidate.exists():
             return candidate
         n += 1
+
+
+import asyncio
+
+from joggy_edge.config import EdgeSettings
+from joggy_edge.uploader import UploadOutcome, UploadResult, upload_with_retry  # noqa: F401 — re-exported for tests
+
+
+class AuthRequired(Exception):
+    """Raised when the daemon receives 401/403 — token must be fixed before continuing."""
+
+
+async def consumer_loop(
+    queue: "asyncio.Queue[Path]",
+    settings: EdgeSettings,
+    stop_after: int | None = None,
+) -> None:
+    """Drain queue, upload each file, dispatch to uploaded/ or failed/.
+
+    Raises AuthRequired on AUTH_FAILED (caller stops the daemon).
+    `stop_after`: if set, exits after processing N items (used in tests).
+    """
+    inbox = Path(settings.inbox_dir)  # noqa: F841 — accessed via settings later if needed
+    uploaded_root = Path(settings.uploaded_dir)
+    failed_root = Path(settings.failed_dir)
+    processed = 0
+
+    while stop_after is None or processed < stop_after:
+        try:
+            path = await asyncio.wait_for(queue.get(), timeout=1.0) if stop_after else await queue.get()
+        except asyncio.TimeoutError:
+            return
+
+        try:
+            if not path.exists():
+                logger.warning("File disappeared before upload: %s", path)
+                continue
+            if not wait_for_stable_size(path):
+                logger.warning("File size unstable, skipping (will retry on restart): %s", path)
+                continue
+
+            result: UploadResult = await upload_with_retry(path, settings)
+            if result.outcome in (UploadOutcome.UPLOADED, UploadOutcome.DUPLICATE):
+                target = move_to_uploaded(path, uploaded_root)
+                logger.info(
+                    "Uploaded %s → %s (photo_id=%s, outcome=%s)",
+                    path.name, target.name, result.photo_id, result.outcome.value,
+                )
+            elif result.outcome == UploadOutcome.REJECTED:
+                target = move_to_failed(path, failed_root)
+                logger.error("Rejected %s → %s (reason=%s)", path.name, target.name, result.reason)
+            elif result.outcome == UploadOutcome.AUTH_FAILED:
+                logger.critical("AUTH_FAILED on %s (reason=%s) — stopping daemon", path.name, result.reason)
+                raise AuthRequired(result.reason or "token rejected")
+        finally:
+            queue.task_done()
+            processed += 1
