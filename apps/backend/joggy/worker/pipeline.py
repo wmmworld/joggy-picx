@@ -41,6 +41,7 @@ from joggy.db.models import (
     ReviewQueueStatus,
 )
 from joggy.services import r2
+from joggy.services.thumbnail import ThumbnailError, generate_thumbnail
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -101,6 +102,19 @@ async def run_pipeline(
     img_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img_bgr is None:
         raise ValueError(f"Cannot decode image for photo {photo_id}")
+
+    # 2.5 Thumbnail generation (best-effort — failures don't break AI pipeline)
+    try:
+        thumb_bytes = generate_thumbnail(img_bytes)
+        thumb_key = r2.r2_key_thumbnail(str(photo.event_id), str(photo.id))
+        r2.upload_bytes(thumb_key, thumb_bytes, content_type="image/jpeg")
+        photo.r2_key_thumbnail = thumb_key
+        logger.info(
+            "Thumbnail generated for %s (%d bytes → %d bytes)",
+            photo.id, len(img_bytes), len(thumb_bytes),
+        )
+    except ThumbnailError as e:
+        logger.warning("Thumbnail generation failed for %s: %s", photo.id, e)
 
     # 3. Bib detection + OCR
     bbox = detector.detect(img_bgr)
