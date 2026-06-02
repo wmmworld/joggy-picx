@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-02
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Pull API integration tests ✅ — 5 contract tests (happy path, 401, 403, empty, security headers), 65/65 total
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Pi auto-start ✅ — joggy-capture.service (gphoto2 tethered) + joggy-edge.service, fully unattended (16 photos auto-uploaded after Pi reboot test)
 
 ---
 
