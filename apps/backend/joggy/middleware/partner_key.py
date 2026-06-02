@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 import argon2
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import APIKeyHeader
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,6 +10,7 @@ from typing import List
 
 from joggy.db.models import PartnerApiKey
 from joggy.db.session import get_db
+from joggy.middleware.rate_limit import check_rate_limit
 
 class PartnerKeyClaims(BaseModel):
     organizer_id: uuid.UUID
@@ -20,8 +21,9 @@ api_key_header = APIKeyHeader(name="X-API-Key")
 ph = argon2.PasswordHasher()
 
 async def verify_partner_api_key(
+    response: Response,
     api_key: str = Depends(api_key_header),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> PartnerKeyClaims:
     """
     FastAPI Dependency สำหรับตรวจสอบ Partner API Key
@@ -62,6 +64,13 @@ async def verify_partner_api_key(
             detail="Invalid API key"
         )
         
+    # Rate limit check (raises 429 if over limit; sets X-RateLimit-* headers)
+    await check_rate_limit(
+        key_id=str(partner_key.id),
+        limit_per_minute=partner_key.rate_limit_per_minute,
+        response=response,
+    )
+
     # อัปเดต last_used_at — ใช้ Python datetime (ไม่ใช่ SQL func.now() ซึ่งเป็น expression)
     partner_key.last_used_at = datetime.now(timezone.utc)
     db.add(partner_key)
