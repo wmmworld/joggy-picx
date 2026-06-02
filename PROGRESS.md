@@ -4,8 +4,8 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-06-01
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Thumbnail generation ✅ — Pillow resize 400×400 in RQ worker, fast Photo Gallery loads (8 tests, 55/55 total)
+วันที่อัปเดตล่าสุด: 2026-06-02
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Rate limit + Security headers ✅ — Redis per-key counter (60/min default) + 5 OWASP headers, 60/60 tests
 
 ---
 
@@ -107,8 +107,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 - [x] **Edge uploader (Pi → VPS)** ✅ — inotify daemon, tenacity retry, stuck marker, systemd service, 28 TDD tests
 - [x] **End-to-end real-photo smoke test** ✅ 2026-06-01 — Canon EOS RP → Pi 5 → edge daemon → VPS → R2 → Dashboard (15 photos visible)
 - [x] **Thumbnail generation** ✅ — Pillow 400×400 q75 in pipeline.py (best-effort, ~100× smaller than originals), 7 new tests, 55/55 total
+- [x] **Public API rate limit + security headers** ✅ — Redis counter per partner key (uses existing rate_limit_per_minute), HSTS + X-Frame-Options + X-Content-Type-Options + Referrer-Policy + Permissions-Policy. Fail-open on Redis errors. 5 new tests, 60/60 total.
 - [ ] race-result.asia integration test (Pull API + signed URL) + load test 1,000 รูป (Antigravity)
-- [ ] Performance tuning + security check + Public API rate limit (Codex)
+- [ ] Performance tuning + remaining security audit (Codex)
 - **Milestone:** race-result.asia ดึงรูปด้วยเลขบิบผ่าน Public API ได้จริง + Internal dashboard ใช้งานครบ
 
 ### Phase 5 — Polish + First Real Test (วันที่ 21–25)

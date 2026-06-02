@@ -23,6 +23,8 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] Rate limit on Public API: `apps/backend/joggy/middleware/rate_limit.py` — Redis counter per `(api_key_id, minute_window)`. Enforces existing `PartnerApiKey.rate_limit_per_minute` (default 60/min). Fail-open on Redis errors so partners aren't blocked when ops is broken. Sets `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers; returns 429 with `Retry-After` when over limit. Wired into `verify_partner_api_key` so all `/v1/public/*` endpoints are covered. 4 unit tests.
+- [Claude] Security headers: `SecurityHeadersMiddleware` in `apps/backend/joggy/main.py` adds 5 OWASP-basic headers to every response — `Strict-Transport-Security` (HSTS 1 year, includeSubDomains), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` disabling geolocation/microphone/camera. CSP not added (API-only backend; frontend handles its own). 1 integration test.
 - [Claude] Thumbnail generation: `apps/backend/joggy/services/thumbnail.py` — pure `generate_thumbnail()` (Pillow 400×400 q75) + `ThumbnailError`. Wired into `pipeline.py` between R2 download and AI inference. Best-effort — failures log WARNING but don't break the AI pipeline. Photo Gallery already falls back to original when `r2_key_thumbnail` is NULL. Adds `Pillow>=10.4` dep + 5 unit tests + 2 pipeline integration tests (55/55 total).
 - [Claude] Edge uploader (Pi 5): `apps/edge/joggy_edge/` package with:
   - `config.py` — EdgeSettings via pydantic-settings (.env loader, HttpUrl validation)
