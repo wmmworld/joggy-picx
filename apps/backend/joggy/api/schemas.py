@@ -120,3 +120,15 @@ class EventPhotosOut(BaseModel):
     page: int = Field(ge=1)
     per_page: int = Field(ge=1, le=100)
     pages: int = Field(ge=1)         # ceil(total / per_page), min 1
+
+
+# Phase 5: Event Token generation API schemas
+
+class EventTokenOut(BaseModel):
+    """Response when generating a new event token. Plaintext shown ONCE."""
+    token_id: uuid.UUID
+    token_prefix: str
+    plaintext_token: str  # shown once, then only hash kept
+    expires_at: datetime
+    event_id: uuid.UUID
+    event_name: str

@@ -27,6 +27,7 @@ from joggy.api.schemas import (
     ReviewAction,
     PhotoItemOut,
     EventPhotosOut,
+    EventTokenOut,
 )
 from joggy.db.models import (
     Checkpoint, Event, EventStatus, Organizer, PartnerApiKey,
@@ -34,6 +35,7 @@ from joggy.db.models import (
     Photo,
     AIReviewStatus,
     ActorKind, AuditLog,
+    EventToken,
 )
 from joggy.services import r2
 from joggy.db.session import get_db
@@ -583,4 +585,64 @@ async def list_event_photos(
         page=page,
         per_page=per_page,
         pages=pages,
+    )
+
+
+# ── Event Tokens (D-017) ──────────────────────────────────────────────────────
+
+@router.post(
+    "/events/{event_id}/tokens",
+    response_model=EventTokenOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def issue_event_token(
+    event_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    claims: InternalUserClaims = Depends(verify_internal_user),
+) -> EventTokenOut:
+    """Generate a Per-Event Upload Token (D-017) for the given event.
+
+    Plaintext is returned ONCE — caller must store it (e.g., paste into Pi .env).
+    Only admin role can issue tokens. Scope check is via _ensure_admin.
+    """
+    _ensure_admin(claims)
+    event = await _get_event_or_404(db, event_id)
+
+    # Generate plaintext token with "evt_" prefix (matches edge daemon expectation)
+    plaintext_token = f"evt_{secrets.token_urlsafe(32)}"
+    token_prefix = plaintext_token[:8]
+    token_hash = _ph.hash(plaintext_token)
+
+    # DB column is TIMESTAMP WITHOUT TIME ZONE — strip tzinfo if present
+    end_at_naive = event.end_at
+    if end_at_naive and end_at_naive.tzinfo is not None:
+        end_at_naive = end_at_naive.astimezone(timezone.utc).replace(tzinfo=None)
+
+    token = EventToken(
+        event_id=event.id,
+        token_hash=token_hash,
+        token_prefix=token_prefix,
+        expires_at=end_at_naive,
+        issued_by_app_user_id=claims.user_id,
+    )
+    db.add(token)
+    await db.flush()
+    await db.refresh(token)
+
+    db.add(AuditLog(
+        actor_kind=ActorKind.internal_user,
+        actor_app_user_id=claims.user_id,
+        action="event_token_issued",
+        target_kind="event_token",
+        target_id=token.id,
+        context={"event_id": str(event.id), "token_prefix": token_prefix},
+    ))
+
+    return EventTokenOut(
+        token_id=token.id,
+        token_prefix=token_prefix,
+        plaintext_token=plaintext_token,
+        expires_at=token.expires_at,
+        event_id=event.id,
+        event_name=event.name,
     )
