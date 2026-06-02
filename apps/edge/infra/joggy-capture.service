@@ -1,0 +1,22 @@
+[Unit]
+Description=Joggy-PicX Camera Capture (Canon EOS RP tethered)
+Documentation=https://github.com/wmmworld/Joggy-PicX
+After=joggy-edge.service
+Requires=joggy-edge.service
+
+[Service]
+Type=simple
+User=pi
+# Kill gvfs to prevent USB conflict before each attempt
+# The '-' prefix means failure of ExecStartPre is ignored
+ExecStartPre=-/usr/bin/pkill -f gvfs-gphoto2-volume-monitor
+ExecStart=/usr/bin/gphoto2 \
+    --capture-tethered \
+    --filename "/home/pi/photos/inbox/%Y%m%d_%H%M%S.jpg"
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
