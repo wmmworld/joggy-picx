@@ -9,6 +9,8 @@ from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
 
 from joggy.api import ingest, internal, public
 from joggy.core.config import get_settings
@@ -37,6 +39,29 @@ app = FastAPI(
     redoc_url=None,
     lifespan=lifespan,
 )
+
+# ── Security Headers ──────────────────────────────────────────────────────────
+
+_SECURITY_HEADERS = {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+}
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add OWASP-basic security headers to every response."""
+
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response = await call_next(request)
+        for name, value in _SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ── CORS — Internal Dashboard Only ────────────────────────────────────────────
 # Phase 4: เพิ่ม Vercel production domain
