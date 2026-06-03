@@ -121,16 +121,23 @@ async def _process_erasure_async(erasure_id: str) -> dict:
             )
 
         # 5b. Delete R2 objects — original + thumbnail (R2 delete_object is safe for missing keys)
+        # Codex: ถ้า R2 delete fail ห้าม mark completed ไม่งั้นรูปอาจค้างใน storage โดยไม่มี DB row ให้ retry
+        r2_failures: list[str] = []
         for photo in photos:
             try:
                 r2.delete_object(photo.r2_key_original)
             except Exception as exc:
                 logger.warning("R2 delete failed (original) photo=%s: %s", photo.id, exc)
+                r2_failures.append(str(photo.id))
             if photo.r2_key_thumbnail:
                 try:
                     r2.delete_object(photo.r2_key_thumbnail)
                 except Exception as exc:
                     logger.warning("R2 delete failed (thumbnail) photo=%s: %s", photo.id, exc)
+                    r2_failures.append(str(photo.id))
+
+        if r2_failures:
+            raise RuntimeError(f"R2 delete failed for {len(set(r2_failures))} photo(s)")
 
         # 6. Delete Photo rows
         if photo_ids:
