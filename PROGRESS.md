@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-03
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — fix(pi): escape %% ใน systemd unit (filename เพี้ยนจาก %Y%m%d → %% literal) → end-to-end ทำงานสมบูรณ์ 19 รูป ✅
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — fix(pi): capture ต้องเป็น USER service (logind uaccess ACL ต้องการ login session) + udev rule → end-to-end ทำงานสมบูรณ์ผ่าน service จริงจังครั้งแรก ✅
 
 ---
 
@@ -161,9 +161,10 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
 
-### 2026-06-03 (Pi Capture Service — Critical Bug Fix)
-- [Claude] **fix(pi): escape `%%` ใน systemd unit** ✅ — `apps/edge/infra/joggy-capture.service`: `--filename ".../%Y%m%d_%H%M%S.jpg"` ทำให้ systemd expand `%Y/%m/%H/%M/%S/%d` เป็น systemd specifiers (state dir, hostname, etc.) → filename เพี้ยนเป็น `/home/pi/photos/inbox//etc/systemd/system<uuid>/run/credentials/...` → gphoto2 capture fail → restart loop ตลอด. Fix: เปลี่ยนเป็น `%%Y%%m%%d_%%H%%M%%S` + เพิ่ม `ExecStartPre=/bin/sleep 5` (USB enumeration race) + `Restart=always` (recover from clean gphoto2 exit) + `TimeoutStartSec=60` (commit: 444b51e)
-- [Claude] **End-to-end verified post-fix** ✅ — กล้องกดชัตเตอร์ → service capture detect → edge daemon upload → dashboard เห็น 19 รูป (จาก 16) — capture latency ~20s รวม upload
+### 2026-06-03 (Pi Capture Service — Two-Bug Saga Resolved)
+- [Claude] **fix #2 (root cause): user-level service, not system-level** ✅ — เลิกใช้ `/etc/systemd/system/joggy-capture.service` (User=pi) เปลี่ยนเป็น `/home/pi/.config/systemd/user/joggy-capture.service` + `sudo loginctl enable-linger pi`. เหตุผล: system service รันนอก login session → libgphoto2 อ่าน USB endpoint ของ Canon ไม่ได้ (`Permission denied` ทุกครั้งที่ download image) เพราะ systemd-logind ตั้ง uaccess ACL ให้เฉพาะ login session ของ user pi เท่านั้น แม้ device เป็น `crw-rw-r--+ plugdev` และ user pi อยู่ใน plugdev group ก็ไม่ช่วย. User-level service + linger ทำให้ session ของ pi อยู่ตลอดแม้ reboot → ได้ ACL → gphoto2 ทำงาน. เพิ่ม `99-joggy-canon.rules` udev rule (MODE 0664 GROUP plugdev for Canon 04a9:32e2) เป็น belt-and-braces + `ExecStartPre=gphoto2 --reset` ล้าง orphan PTP session ที่ทำให้ Canon ตอบ "Access Denied" หลัง unclean exit (commit: f988f00)
+- [Claude] **fix #1: escape `%%` ใน systemd unit** ✅ — `apps/edge/infra/joggy-capture.service`: `--filename ".../%Y%m%d_%H%M%S.jpg"` ทำให้ systemd expand `%Y/%m/%H/%M/%S/%d` เป็น systemd specifiers (state dir, hostname, etc.) → filename เพี้ยนเป็น `/home/pi/photos/inbox//etc/systemd/system<uuid>/run/credentials/...` → gphoto2 capture fail → restart loop ตลอด. Fix: เปลี่ยนเป็น `%%Y%%m%%d_%%H%%M%%S` + เพิ่ม `ExecStartPre=/bin/sleep 5` (USB enumeration race) + `Restart=always` (recover from clean gphoto2 exit) + `TimeoutStartSec=60` (commit: 444b51e)
+- [Claude] **End-to-end verified via user service** ✅ — `/home/pi/photos/inbox/20260603_140116.jpg` (5.8 MB) → `Uploaded ... photo_id=266f30c9-04c1-4544-b915-c2789f15ea5a` → dashboard. รูปขึ้นจริงผ่าน service ไม่ใช่ manual command (ก่อนหน้านี้ 19 รูปที่เห็น มาจาก manual run ทั้งหมด — service ไม่เคยทำงานเลย)
 - [Claude] Token rotation verified end-to-end ✅ — UI generate token → CEO copy → `sed -i ...` Pi `.env` → `systemctl restart joggy-edge` → upload กลับมาทำงานปกติ (เดิม token expire ทำให้ pipeline พัง)
 
 ### 2026-06-03 (Phase 5 — Event Token Generation UI)
