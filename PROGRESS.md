@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-03
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — fix(pi): capture ต้องเป็น USER service (logind uaccess ACL ต้องการ login session) + udev rule → end-to-end ทำงานสมบูรณ์ผ่าน service จริงจังครั้งแรก ✅
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — feat(tools): setup_pi.sh — idempotent onboarding script รวม all hard-won knowledge จาก 2026-06-03 debug session ✅
 
 ---
 
@@ -160,6 +160,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-03 (Pi Setup Script + Two-Bug Saga Resolved)
+- [Claude] **feat(tools): `tools/setup_pi.sh`** ✅ — idempotent bash script สำหรับ onboard Pi ใหม่ตั้งแต่ blank Raspberry Pi OS: install packages (gphoto2, uv, git, acl), udev rule Canon EOS RP, clone/update repo, uv venv + deps, create photo folders, install joggy-edge (system service) + joggy-capture (user service), loginctl enable-linger, interactive prompt สำหรับ INGEST_URL + EVENT_TOKEN → write .env, start services, smoke test /healthz. Encodes all lessons learned 2026-06-03 (commit: 2252f6f)
 
 ### 2026-06-03 (Pi Capture Service — Two-Bug Saga Resolved)
 - [Claude] **fix #2 (root cause): user-level service, not system-level** ✅ — เลิกใช้ `/etc/systemd/system/joggy-capture.service` (User=pi) เปลี่ยนเป็น `/home/pi/.config/systemd/user/joggy-capture.service` + `sudo loginctl enable-linger pi`. เหตุผล: system service รันนอก login session → libgphoto2 อ่าน USB endpoint ของ Canon ไม่ได้ (`Permission denied` ทุกครั้งที่ download image) เพราะ systemd-logind ตั้ง uaccess ACL ให้เฉพาะ login session ของ user pi เท่านั้น แม้ device เป็น `crw-rw-r--+ plugdev` และ user pi อยู่ใน plugdev group ก็ไม่ช่วย. User-level service + linger ทำให้ session ของ pi อยู่ตลอดแม้ reboot → ได้ ACL → gphoto2 ทำงาน. เพิ่ม `99-joggy-canon.rules` udev rule (MODE 0664 GROUP plugdev for Canon 04a9:32e2) เป็น belt-and-braces + `ExecStartPre=gphoto2 --reset` ล้าง orphan PTP session ที่ทำให้ Canon ตอบ "Access Denied" หลัง unclean exit (commit: f988f00)
