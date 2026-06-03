@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,8 +38,14 @@ router = APIRouter()
     summary="Get photos by bib number — Partner API (D-018)",
 )
 async def get_photos_by_bib(
-    event_id: str,
-    bib: str,
+    event_id: uuid.UUID = Query(..., description="Event UUID"),
+    bib: str = Query(
+        ...,
+        min_length=1,
+        max_length=20,
+        pattern=r"^[A-Za-z0-9_-]+$",
+        description="Bib number (alphanumeric + - _ only, 1-20 chars)",
+    ),
     db: AsyncSession = Depends(get_db),
     claims: PartnerKeyClaims = Depends(verify_partner_api_key),
 ) -> dict:
@@ -55,10 +61,9 @@ async def get_photos_by_bib(
             detail="Missing required scope: public:photos:read",
         )
 
-    try:
-        event_uuid = uuid.UUID(event_id)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid event_id")
+    # Claude (M-001 from audit 2026-06-03): FastAPI now parses event_id as UUID
+    # automatically (422 on malformed) and validates bib pattern.
+    event_uuid = event_id
 
     # Codex: public photo lookup must stay tenant-scoped to the partner's organizer.
     event_result = await db.execute(select(Event).where(Event.id == event_uuid))
@@ -102,9 +107,15 @@ async def get_photos_by_bib(
     summary="Right to Erasure — Partner requests photo deletion (D-014, SLA 24h)",
 )
 async def request_erasure(
-    event_id: str,
-    bib: str,
-    reason: str | None = None,
+    event_id: uuid.UUID = Query(..., description="Event UUID"),
+    bib: str = Query(
+        ...,
+        min_length=1,
+        max_length=20,
+        pattern=r"^[A-Za-z0-9_-]+$",
+        description="Bib number (alphanumeric + - _ only, 1-20 chars)",
+    ),
+    reason: str | None = Query(default=None, max_length=500, description="Optional erasure reason (max 500 chars)"),
     db: AsyncSession = Depends(get_db),
     claims: PartnerKeyClaims = Depends(verify_partner_api_key),
 ) -> dict:
@@ -119,10 +130,8 @@ async def request_erasure(
             detail="Missing required scope: erasure:write",
         )
 
-    try:
-        event_uuid = uuid.UUID(event_id)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid event_id")
+    # Claude (M-001 from audit 2026-06-03): typed UUID + validated bib by FastAPI.
+    event_uuid = event_id
 
     # Verify event exists and belongs to this partner's organizer
     event_result = await db.execute(select(Event).where(Event.id == event_uuid))

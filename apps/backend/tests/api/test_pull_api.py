@@ -222,3 +222,44 @@ async def test_response_includes_security_headers(api_client, mock_db, partner_c
     # If Redis is running: X-RateLimit-Limit present. If not: absent (fail-open).
     # Just check the response came back successfully — don't assert rate limit
     # headers since they depend on Redis availability in test environment.
+
+
+# ── M-001 from security audit 2026-06-03 — typed UUID + bib validation ─────────
+
+@pytest.mark.asyncio
+async def test_invalid_event_id_returns_422(api_client):
+    """Malformed event_id is rejected by FastAPI before reaching the handler."""
+    async with api_client as client:
+        response = await client.get("/v1/public/photos?event_id=not-a-uuid&bib=1234")
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_bib_with_special_chars_returns_422(api_client):
+    """Bib with disallowed characters (e.g., SQL/path injection attempts) → 422."""
+    async with api_client as client:
+        response = await client.get(
+            f"/v1/public/photos?event_id={uuid.uuid4()}&bib=' OR 1=1--"
+        )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_bib_too_long_returns_422(api_client):
+    """Bib exceeding max_length=20 → 422."""
+    async with api_client as client:
+        response = await client.get(
+            f"/v1/public/photos?event_id={uuid.uuid4()}&bib={'1' * 21}"
+        )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_empty_bib_returns_422(api_client):
+    """Empty bib (min_length=1 violation) → 422."""
+    async with api_client as client:
+        response = await client.get(
+            f"/v1/public/photos?event_id={uuid.uuid4()}&bib="
+        )
+    assert response.status_code == 422
+
