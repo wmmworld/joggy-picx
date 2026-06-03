@@ -4,8 +4,8 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-06-03
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 5 mobile-responsive UI ✅ — 6 files polished for 375px–430px viewport, tsc 0 errors, CEO can monitor photos on mobile at events
+วันที่อัปเดตล่าสุด: 2026-06-03 (เย็น)
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Quick wins audit backlog ✅ M-001 typed UUID/bounded bib + M-004 dep upper bounds + L-003 chmod 600; Antigravity brief stress test พร้อมส่ง
 
 ---
 
@@ -161,6 +161,12 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-03 (เย็น — Audit Quick Wins + Antigravity brief)
+- [Claude] **M-004 dependency upper bounds** ✅ — `apps/backend/pyproject.toml`: เพิ่ม upper bound `<NextMajor>` ให้ sqlmodel/alembic/asyncpg/pgvector/boto3/argon2-cffi/pyjwt ที่เดิมเปิด open. `uv lock` resolve 71 packages clean, 80/80 tests pass (commit: e03437f)
+- [Claude] **M-001 typed query params** ✅ — `apps/backend/joggy/api/public.py`: เปลี่ยน `event_id: str` → `uuid.UUID` (FastAPI 422 อัตโนมัติเมื่อ malformed), `bib: str` → `Query(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_-]+$")`, `reason: str | None` → `Query(max_length=500)`. ผลข้างเคียง: ปฏิเสธ SQL/path injection chars (`' OR 1=1--`, `../`) ที่ framework boundary. เพิ่ม 4 regression tests, 80/80 pass (commit: 2b660b4)
+- [Claude] **L-003 Pi .env chmod 600** ✅ — `tools/setup_pi.sh`: หลัง write .env บรรจุ EVENT_TOKEN ทำ chmod 600 + tighten existing .env ใน re-run (commit: a2e10a3)
+- [Claude] **Antigravity stress test brief** — `docs/antigravity-tasks/phase5-stress-test.md`: 3 scenarios (ingest burst 20 req/s, public API 100 RPS, rate limit verification of Codex's H-002 fix), ส่งให้ Antigravity (Gemini Pro/Max) รัน background (commit: f207b02)
 
 ### 2026-06-03 (Phase 5 — Security Audit + Critical/High Fixes)
 - [Codex] Pre-production backend security audit ✅ — สร้าง `docs/security-audit-2026-06-03.md`; พบ 1 Critical + 6 High และแก้ครบเป็น commit แยก: public photos tenant scope, ingest magic-byte/bounded-read validation, ingest rate limit per Event Token, Supabase JWT issuer required, production default SECRET_KEY rejected, partner key management admin-only, erasure worker fail เมื่อ R2 delete fail. Verification: `cd apps/backend && uv run pytest tests/ -v` ผ่าน 76/76; `uv pip list --outdated` run แล้ว (มี package outdated บันทึกในรายงาน); `pip-audit` ไม่อยู่ใน environment จึงยังไม่ได้รัน CVE scan.
