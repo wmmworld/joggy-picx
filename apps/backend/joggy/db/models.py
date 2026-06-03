@@ -244,7 +244,7 @@ class ReviewQueue(SQLModel, table=True):
 class EventToken(SQLModel, table=True):
     """
     Per-Event Upload Token — Photographer ใช้ POST /ingest (D-017).
-    token_hash = argon2; เก็บแค่ token_prefix (8 chars) สำหรับแสดงใน dashboard.
+    token_hash = argon2; เก็บ token_prefix (12 chars, L-002) สำหรับ DB lookup + UI.
     """
 
     __tablename__ = "event_tokens"
@@ -252,7 +252,7 @@ class EventToken(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     event_id: uuid.UUID = Field(foreign_key="events.id", index=True)
     token_hash: str = Field(unique=True)  # argon2 hash
-    token_prefix: str  # first 8 chars — สำหรับแสดงใน UI เท่านั้น
+    token_prefix: str  # first 12 chars of plaintext (4 "evt_" + 8 random); L-002
     expires_at: datetime  # = event.end_at
     revoked_at: Optional[datetime] = None
     issued_by_app_user_id: uuid.UUID = Field(foreign_key="app_users.id")

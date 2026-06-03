@@ -612,7 +612,9 @@ async def issue_event_token(
 
     # Generate plaintext token with "evt_" prefix (matches edge daemon expectation)
     plaintext_token = f"evt_{secrets.token_urlsafe(32)}"
-    token_prefix = plaintext_token[:8]
+    # L-002 from security audit 2026-06-03: prefix 12 chars (was 8) — keeps
+    # 8 random chars of entropy in the display/lookup token, lower collision.
+    token_prefix = plaintext_token[:12]
     token_hash = _ph.hash(plaintext_token)
 
     # DB column is TIMESTAMP WITHOUT TIME ZONE — strip tzinfo if present

@@ -76,7 +76,10 @@ async def test_admin_can_issue_event_token(mock_db):
     assert response.status_code == 201
     data = response.json()
     assert data["plaintext_token"].startswith("evt_")
-    assert data["token_prefix"] == data["plaintext_token"][:8]
+    # L-002 from security audit 2026-06-03: prefix bumped from 8 to 12 chars
+    # (4 "evt_" + 8 random) to reduce display/lookup collision risk
+    assert data["token_prefix"] == data["plaintext_token"][:12]
+    assert len(data["token_prefix"]) == 12
     assert data["event_id"] == str(event_id)
     assert data["event_name"] == "Test Race"
     assert "token_id" in data

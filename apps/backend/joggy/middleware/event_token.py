@@ -32,16 +32,26 @@ async def verify_event_token(
             detail="Invalid token format"
         )
     
-    # lookup event_tokens table โดย token_prefix (8 chars แรก)
-    token_prefix = token[:8]
-    
-    stmt = select(EventToken).where(EventToken.token_prefix == token_prefix)
+    # L-002 from security audit 2026-06-03: token_prefix now 12 chars
+    # (4 prefix "evt_" + 8 random) instead of 4 random chars. Lower collision.
+    # Backward-compat: try new 12-char prefix first; fall back to legacy 8-char.
+    # Remove fallback after all pre-2026-06-04 tokens have expired.
+    prefix_new = token[:12]
+    prefix_legacy = token[:8]
+
+    stmt = select(EventToken).where(EventToken.token_prefix == prefix_new)
     result = await db.execute(stmt)
     event_token = result.scalar_one_or_none()
-    
+
+    if event_token is None:
+        # Legacy lookup for tokens issued before 2026-06-04
+        stmt = select(EventToken).where(EventToken.token_prefix == prefix_legacy)
+        result = await db.execute(stmt)
+        event_token = result.scalar_one_or_none()
+
     if not event_token:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token not found"
         )
         
