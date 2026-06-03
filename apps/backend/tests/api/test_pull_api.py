@@ -12,9 +12,9 @@ from joggy.db.models import AIReviewStatus, Photo, Checkpoint, Event, EventStatu
 from datetime import datetime, timezone
 
 
-def _make_partner_claims(scopes=None):
+def _make_partner_claims(scopes=None, organizer_id=None):
     return PartnerKeyClaims(
-        organizer_id=uuid.uuid4(),
+        organizer_id=organizer_id or uuid.uuid4(),
         key_id=uuid.uuid4(),
         scopes=scopes if scopes is not None else ["public:photos:read"],
     )
@@ -33,6 +33,25 @@ def _make_photo(event_id, bib="1234"):
         ai_review_status=AIReviewStatus.auto,
         captured_at=datetime(2026, 6, 1, 9, tzinfo=timezone.utc),
     )
+
+
+def _make_event(event_id, organizer_id):
+    return Event(
+        id=event_id,
+        organizer_id=organizer_id,
+        name="Test Race",
+        start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        end_at=datetime(2026, 6, 1, 12, tzinfo=timezone.utc),
+        status=EventStatus.active,
+    )
+
+
+def _setup_event_and_rows(mock_db, event, rows):
+    event_result = MagicMock()
+    event_result.scalar_one_or_none.return_value = event
+    rows_result = MagicMock()
+    rows_result.all.return_value = rows
+    mock_db.execute.side_effect = [event_result, rows_result]
 
 
 @pytest.fixture
@@ -64,14 +83,12 @@ def api_client(mock_db, partner_claims):
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_happy_path_returns_photos_with_urls(api_client, mock_db):
+async def test_happy_path_returns_photos_with_urls(api_client, mock_db, partner_claims):
     """Valid request with matching photos returns correct response shape."""
     event_id = uuid.uuid4()
     photo = _make_photo(event_id, bib="1234")
-
-    rows_result = MagicMock()
-    rows_result.all.return_value = [(photo, None)]  # (Photo, Checkpoint) tuples
-    mock_db.execute.return_value = rows_result
+    event = _make_event(event_id, partner_claims.organizer_id)
+    _setup_event_and_rows(mock_db, event, [(photo, None)])
 
     with patch("joggy.api.public.signed_url", return_value="https://r2.example/signed"):
         async with api_client as client:
@@ -91,13 +108,11 @@ async def test_happy_path_returns_photos_with_urls(api_client, mock_db):
 
 
 @pytest.mark.asyncio
-async def test_no_matching_photos_returns_empty_list(api_client, mock_db):
+async def test_no_matching_photos_returns_empty_list(api_client, mock_db, partner_claims):
     """When no photos match the bib, returns 200 with empty photos list."""
     event_id = uuid.uuid4()
-
-    rows_result = MagicMock()
-    rows_result.all.return_value = []
-    mock_db.execute.return_value = rows_result
+    event = _make_event(event_id, partner_claims.organizer_id)
+    _setup_event_and_rows(mock_db, event, [])
 
     with patch("joggy.api.public.signed_url", return_value="https://r2.example/signed"):
         async with api_client as client:
@@ -147,12 +162,50 @@ async def test_wrong_scope_returns_403(mock_db):
 
 
 @pytest.mark.asyncio
-async def test_response_includes_security_headers(api_client, mock_db):
-    """Security headers middleware active on public endpoints."""
+async def test_partner_cannot_read_photos_for_other_organizer(mock_db):
+    """Cross-organizer event_id must be rejected before returning signed URLs."""
     event_id = uuid.uuid4()
+    partner_organizer_id = uuid.uuid4()
+    other_organizer_id = uuid.uuid4()
+    claims = _make_partner_claims(organizer_id=partner_organizer_id)
+    event = Event(
+        id=event_id,
+        organizer_id=other_organizer_id,
+        name="Other Organizer Race",
+        start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        end_at=datetime(2026, 6, 1, 12, tzinfo=timezone.utc),
+        status=EventStatus.active,
+    )
+
+    event_result = MagicMock()
+    event_result.scalar_one_or_none.return_value = event
     rows_result = MagicMock()
     rows_result.all.return_value = []
-    mock_db.execute.return_value = rows_result
+    mock_db.execute.side_effect = [event_result, rows_result]
+
+    async def _get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[verify_partner_api_key] = lambda: claims
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get(
+                f"/v1/public/photos?event_id={event_id}&bib=1234"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_response_includes_security_headers(api_client, mock_db, partner_claims):
+    """Security headers middleware active on public endpoints."""
+    event_id = uuid.uuid4()
+    event = _make_event(event_id, partner_claims.organizer_id)
+    _setup_event_and_rows(mock_db, event, [])
 
     with patch("joggy.api.public.signed_url", return_value="https://r2.example/signed"):
         async with api_client as client:

@@ -60,6 +60,14 @@ async def get_photos_by_bib(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid event_id")
 
+    # Codex: public photo lookup must stay tenant-scoped to the partner's organizer.
+    event_result = await db.execute(select(Event).where(Event.id == event_uuid))
+    event = event_result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if event.organizer_id != claims.organizer_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Event does not belong to your organization")
+
     stmt = (
         select(Photo, Checkpoint)
         .outerjoin(Checkpoint, Photo.checkpoint_id == Checkpoint.id)
