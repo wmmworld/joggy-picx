@@ -9,7 +9,7 @@ import hashlib
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from joggy.db.models import ActorKind, AuditLog, Photo
 from joggy.db.session import get_db
 from joggy.middleware.event_token import EventTokenClaims, verify_event_token
+from joggy.middleware.rate_limit import check_rate_limit
 from joggy.services import r2
 from joggy.worker.queue import enqueue_process_photo
 
@@ -28,6 +29,7 @@ _security = HTTPBearer()
 _ALLOWED_MIME = {"image/jpeg", "image/jpg", "image/png"}
 _MAX_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
 _READ_CHUNK_BYTES = 1024 * 1024
+_INGEST_RATE_LIMIT_PER_MINUTE = 120
 
 
 async def _read_upload_limited(file: UploadFile) -> bytes:
@@ -67,6 +69,7 @@ def _detect_image_mime(raw: bytes) -> str | None:
 )
 async def upload_photo(
     file: UploadFile,
+    response: Response,
     device_id: str,
     captured_at: str | None = None,
     credentials: HTTPAuthorizationCredentials = Depends(_security),
@@ -86,6 +89,11 @@ async def upload_photo(
 
     # ── 1. Verify token ───────────────────────────────────────────────────────
     claims: EventTokenClaims = await verify_event_token(credentials=credentials, db=db)
+    await check_rate_limit(
+        key_id=f"event-token:{claims.token_id}",
+        limit_per_minute=_INGEST_RATE_LIMIT_PER_MINUTE,
+        response=response,
+    )
 
     # ── 2. Validate file ──────────────────────────────────────────────────────
     content_type = (file.content_type or "").lower()
