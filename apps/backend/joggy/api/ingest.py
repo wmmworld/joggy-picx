@@ -27,6 +27,34 @@ _security = HTTPBearer()
 # ── Constants ─────────────────────────────────────────────────────────────────
 _ALLOWED_MIME = {"image/jpeg", "image/jpg", "image/png"}
 _MAX_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
+_READ_CHUNK_BYTES = 1024 * 1024
+
+
+async def _read_upload_limited(file: UploadFile) -> bytes:
+    # Codex: อ่านเป็น chunk เพื่อ reject ไฟล์ใหญ่ทันทีที่เกิน limit แทนการดึงทั้ง body เข้าหน่วยความจำก่อน
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_READ_CHUNK_BYTES)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > _MAX_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"ไฟล์ใหญ่เกิน {_MAX_SIZE_BYTES // (1024*1024)} MB",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _detect_image_mime(raw: bytes) -> str | None:
+    # Codex: magic-byte check ป้องกัน client spoof Content-Type เป็น image/jpeg ทั้งที่ payload ไม่ใช่รูป
+    if raw.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    return None
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -67,12 +95,14 @@ async def upload_photo(
             detail=f"Unsupported file type: {content_type}. ใช้ JPEG หรือ PNG เท่านั้น",
         )
 
-    raw = await file.read()
-    if len(raw) > _MAX_SIZE_BYTES:
+    raw = await _read_upload_limited(file)
+    detected_mime = _detect_image_mime(raw)
+    if detected_mime is None:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"ไฟล์ใหญ่เกิน {_MAX_SIZE_BYTES // (1024*1024)} MB",
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="ไฟล์ต้องเป็น JPEG หรือ PNG ที่ตรวจสอบ magic bytes ได้",
         )
+    content_type = detected_mime
 
     # ── 3. SHA-256 duplicate check ────────────────────────────────────────────
     sha256 = hashlib.sha256(raw).hexdigest()
