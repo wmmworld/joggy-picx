@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-03 (เย็น)
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Stress test (DIY) ✅ — Antigravity quota หมดเลยเขียนเอง: 3 scenarios in-process, 20,555 req รวม, 0 × 5xx, rate limit H-002 fix verified fired 914 × 429
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Audit cleanups รอบเย็น: L-002 prefix 12 chars (backward-compat) + tools/monitor.sh field health check; tests 84/84 pass
 
 ---
 
@@ -161,6 +161,10 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-03 (ค่ำ — L-002 + monitor.sh)
+- [Claude] **L-002 event token prefix 12 chars** ✅ — `internal.py` issue `plaintext[:8]` → `[:12]` + `middleware/event_token.py` lookup โดย 12-char prefix แล้ว fallback 8-char สำหรับ legacy tokens (Pi live token ที่ออกตอนเช้ายังใช้ได้ไม่ต้อง rotate). 4 new tests ครอบคลุม new prefix lookup + legacy fallback. 84/84 pass (was 80) (commit: 74a94c3)
+- [Claude] **`tools/monitor.sh`** ✅ — one-command Pi field health check: services / camera / photo flow / recent uploads / system temp / VPS health / network — designed for race-day ops via phone-SSH. รัน `bash tools/monitor.sh` หรือ `--watch` (refresh 10s). ไม่ต้องลง deps เพิ่ม (commit: 33106ca)
 
 ### 2026-06-03 (เย็น — Stress Test + Audit Quick Wins)
 - [Claude] **Stress test DIY** ✅ — Antigravity hit quota หลังทำได้บางส่วน (cloud worktree ไม่ sync มา local) เลยเขียนเอง: `tools/stress_test.py` (3 scenarios, httpx ASGITransport, mocked DB/R2/RQ, Redis จริงผ่าน Docker Compose) + `docs/stress-test-2026-06-03.md`. ผล 60s/scenario: A ingest burst 1,074 req (240×202 + 834×429 rate limit) p95 16ms · B public 19,281 req @ 321 RPS p95 31ms · C rate limit fast 200 req (120×202 + 80×429 exact threshold). **0 × 5xx ทุก scenario.** ยืนยัน Codex H-002 rate-limit fix ใช้งานจริง — fired 914 × 429 รวม. ข้อจำกัด: in-process benchmark ไม่วัด Postgres/R2/network จริง, สั่งทำ staging VPS load test เป็น follow-up (commit: a9fdc61)

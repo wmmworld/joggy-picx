@@ -23,6 +23,12 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Security
+- [Claude] **L-002 event token prefix 8 → 12 chars** — `apps/backend/joggy/api/internal.py` + `joggy/middleware/event_token.py` + `joggy/db/models.py`. Token display/lookup prefix bumped from 4 random URL-safe chars (16M combinations) to 8 random chars (281T combinations). Backward-compat preserved via dual lookup (12-char first, 8-char fallback) so live tokens issued before this commit continue working. 4 new middleware tests verify both code paths (84/84 pass, was 80) (commit: 74a94c3)
+
+### Added
+- [Claude] **`tools/monitor.sh`** — one-command Raspberry Pi field health check. Displays services state + camera USB + photo flow counts + recent uploads + system temp/memory + VPS reachability + network info. `bash tools/monitor.sh` for snapshot, `--watch` for 10s refresh loop. Designed for race-day ops via phone-SSH. No new dependencies (commit: 33106ca)
+
+### Security
 - [Claude] **M-004 dependency upper bounds** — `apps/backend/pyproject.toml`: add `<NextMajor>` upper bound to sqlmodel/alembic/asyncpg/pgvector/boto3/argon2-cffi/pyjwt (previously open-bounded). Prevents `uv sync` from silently pulling breaking-change major versions between local-tested and prod-deployed wheels. 80/80 tests pass with new bounds (commit: e03437f)
 - [Claude] **M-001 typed UUID + bounded bib** — `apps/backend/joggy/api/public.py`: change `event_id: str` → `uuid.UUID` (FastAPI returns 422 on malformed automatically), `bib: str` → `Query(min_length=1, max_length=20, pattern=[A-Za-z0-9_-]+)`, `reason: str | None` → `Query(max_length=500)`. Rejects SQL/path injection characters at framework boundary. 4 regression tests added (80/80 pass, was 76) (commit: 2b660b4)
 - [Claude] L-003 quick win: `tools/setup_pi.sh` now `chmod 600` Pi `.env` after writing (contains long-lived EVENT_TOKEN) + tightens existing `.env` on re-run for previously-deployed Pis (commit: a2e10a3)
