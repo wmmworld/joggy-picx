@@ -1,0 +1,46 @@
+[Unit]
+Description=Joggy-PicX Camera Capture (Canon EOS RP tethered)
+Documentation=https://github.com/wmmworld/Joggy-PicX
+
+# IMPORTANT: This is a USER-LEVEL systemd service.
+# Install path: /home/pi/.config/systemd/user/joggy-capture.service
+# Enable with:
+#   sudo loginctl enable-linger pi
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now joggy-capture
+#
+# Why user-level? gphoto2 needs the uaccess ACL that systemd-logind grants
+# to login sessions of the `pi` user. A system-level service (`User=pi` in
+# /etc/systemd/system/) runs without a login session, so libgphoto2 fails
+# with "Permission denied" on the USB endpoint, even though
+# /dev/bus/usb/.../X has `crw-rw-r--+` and `pi` is in `plugdev`.
+# loginctl enable-linger keeps the user session active across reboots so
+# this service starts at boot without anyone logging in interactively.
+#
+# Note: cannot use Requires=joggy-edge.service from a user service
+# (cross-scope dependency not allowed). The edge daemon is a system
+# service. In practice they coexist fine — capture writes to inbox/,
+# edge polls inbox/ and uploads.
+
+[Service]
+Type=simple
+# Wait for USB enumeration to settle after camera reconnect / boot
+ExecStartPre=/bin/sleep 5
+# Kill gvfs to prevent USB conflict before each attempt
+# The '-' prefix means failure of ExecStartPre is ignored
+ExecStartPre=-/usr/bin/pkill -f gvfs-gphoto2-volume-monitor
+# Clear any orphan PTP session from previous crash so Canon doesn't reject
+# the new session with PTP "Access Denied" → "Permission denied"
+ExecStartPre=-/usr/bin/gphoto2 --reset
+# IMPORTANT: %% escapes the literal % so systemd doesn't expand
+# %Y/%m/%d/%H/%M/%S as systemd specifiers (hostname, state dir, etc.)
+# The literal % is then passed to gphoto2 as strftime format
+ExecStart=/usr/bin/gphoto2 --capture-tethered --filename /home/pi/photos/inbox/%%Y%%m%%d_%%H%%M%%S.jpg
+Restart=always
+RestartSec=10
+TimeoutStartSec=60
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

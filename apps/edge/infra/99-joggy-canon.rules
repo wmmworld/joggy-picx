@@ -1,0 +1,9 @@
+# Joggy-PicX — Canon EOS RP USB device permission override
+# Install path: /etc/udev/rules.d/99-joggy-canon.rules
+# Reload:      sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+# Canon EOS RP: vendor 04a9, product 32e2
+# Make the USB endpoint group-readable by `plugdev` even outside an active
+# login session. This is belt-and-braces alongside the user-level service:
+# even if logind's uaccess ACL goes away, group permission still works.
+SUBSYSTEM=="usb", ATTR{idVendor}=="04a9", ATTR{idProduct}=="32e2", MODE="0664", GROUP="plugdev"

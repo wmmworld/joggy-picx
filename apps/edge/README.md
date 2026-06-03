@@ -59,14 +59,34 @@ journalctl -u joggy-edge -f
 
 You should see `Observer started on /home/pi/photos/inbox`.
 
-### 7. Start gphoto2 capture (separate terminal, manual for MVP)
+### 7. Install gphoto2 capture as user-level service
+
+> **Why user-level?** `gphoto2 --capture-tethered` needs the uaccess ACL that systemd-logind grants only to login sessions of `pi`. A system service (`User=pi`) runs without a session → libgphoto2 fails with `Permission denied` when downloading images from the camera even though group permissions look right. Running as a user service + `loginctl enable-linger pi` keeps the user session alive across reboots so this works headless.
 
 ```bash
-gphoto2 --capture-tethered \
-  --filename "/home/pi/photos/inbox/%Y%m%d_%H%M%S.jpg"
+# A. Belt-and-braces — make Canon USB endpoint plugdev-readable always
+sudo cp infra/99-joggy-canon.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger --action=change --subsystem-match=usb
+
+# B. Keep pi's user session alive across reboots
+sudo loginctl enable-linger pi
+
+# C. Install + enable user service
+mkdir -p /home/pi/.config/systemd/user
+cp infra/joggy-capture.user.service /home/pi/.config/systemd/user/joggy-capture.service
+systemctl --user daemon-reload
+systemctl --user enable --now joggy-capture
 ```
 
-Take a photo — within ~2s the daemon should log `Uploaded ... → /home/pi/photos/uploaded/...`.
+Verify:
+```bash
+systemctl --user status joggy-capture
+journalctl --user -u joggy-capture -f
+```
+
+You should see `Waiting for events from camera.` shortly after start.
+
+Take a photo at the camera — within ~2s the edge daemon should log `Uploaded ... → photo_id=...`.
 
 ---
 
@@ -131,3 +151,6 @@ Expected: `28 passed`.
 | Files pile up in inbox | Network/VPS issue (check stuck marker) | Check `journalctl -u joggy-edge` for retry logs; verify INGEST_URL reachable |
 | `Observer started` but no uploads | gphoto2 writing to wrong folder | Verify `--filename` path matches `INBOX_DIR` |
 | Permission denied on photos folder | systemd user (`pi`) lacks access | `chown -R pi:pi /home/pi/photos` |
+| `Permission denied` / `Could not get image` in joggy-capture log | Service installed at system level, not user level → no uaccess ACL → can't read Canon USB endpoint | Reinstall as user service (see step 7). System service `User=pi` does NOT work for gphoto2 tethered. |
+| `joggy-capture` not starting at boot | `loginctl enable-linger pi` not set → user session dies on reboot | `sudo loginctl enable-linger pi` |
+| Camera shows `ERROR: Could not get image` after manual gphoto2 was killed | Orphan PTP session in camera | Power-cycle the camera; service's `ExecStartPre=gphoto2 --reset` should catch this automatically next time |
