@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-03
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Battery test 4h10m PASS ✅ — edge+capture active ตลอด, mem +25Mi/4h, temp max 46.9°C, power cut recovery OK, 12 รูป upload ไม่ตก
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Phase 5 mobile-responsive UI ✅ — 6 files polished for 375px–430px viewport, tsc 0 errors, CEO can monitor photos on mobile at events
 
 ---
 
@@ -115,7 +115,7 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ### Phase 5 — Polish + First Real Test (วันที่ 21–25)
 - [ ] Mobile auto-trigger + NTP + battery monitor (Claude)
 - [ ] Security audit + final perf tuning (Codex)
-- [ ] Mobile-responsive UI + final polish (Cursor)
+- [x] Mobile-responsive UI + final polish (Claude) ✅
 - [ ] Stress test + parallel load test (Antigravity)
 - **Milestone:** พร้อมทดสอบจริงในสนาม
 
@@ -160,6 +160,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-03 (Phase 5 — Mobile-Responsive UI)
+- [Claude] Phase 5 mobile-responsive UI polish ✅ — 6 files updated following `docs/cursor-tasks/phase5-mobile-responsive.md`: (1) `layout.tsx` viewport meta; (2) dashboard responsive padding + h1 sizing; (3) events page full-width button + header; (4) event detail flex-wrap actions + breadcrumb sizing + photo link full-width mobile; (5) photo gallery PRIMARY: search input text-base (iOS zoom fix), grid 2-col mobile→3-col tablet→4-col desktop, gap-2 md:gap-4, aspect-square image container, lightbox touch-none, pagination flex-wrap; (6) review queue stats flex-wrap + table min-w-[600px]. TypeScript 0 errors. CEO can now monitor photos on mobile (375px–430px) at marathon events without breaking desktop layout. (commit: ae87c84)
 
 ### 2026-06-03 (Battery Test — PASS ✅)
 - [Claude] **Battery test 4h10m PASS** — 14:23–18:33 ไม่มี service crash แม้แต่ครั้งเดียว (50 readings ทุก 5 นาที). Memory: 542Mi→567Mi (+25Mi/4h, ไม่มี leak). Temp: 41.9–46.9°C (max ต่ำกว่า 70°C threshold มาก). Photos: 12 รูป upload สำเร็จทุกใบ. Power cut recovery: services auto-restart และ upload ได้ทันทีหลัง reboot. Pi 5 + Canon EOS RP พร้อมสนามจริง ✅
