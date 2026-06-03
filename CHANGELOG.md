@@ -23,6 +23,7 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] **Battery test result — Pi 5 + Canon EOS RP พร้อมสนาม**: 4h10m continuous run (14:23–18:33), 50 health readings ทุก 5 นาที. Results: `edge=active capture=active` ตลอด (0 crashes), memory +25Mi/4h (ไม่มี leak), temp max 46.9°C, 12 photos uploaded without loss, power cut recovery verified (auto-restart ทั้ง 2 services). All criteria PASS ✅
 - [Claude] `tools/setup_pi.sh` — idempotent Raspberry Pi 5 onboarding script. Encodes all hard-won knowledge from 2026-06-03 debug session: system package install, Canon udev rule (99-joggy-canon.rules), repo clone/pull, uv venv + edge deps, photo folders, joggy-edge as system service, joggy-capture as USER service + loginctl linger (critical for gphoto2 USB permission), .env interactive config, service start, VPS healthz smoke test. Safe to re-run on existing Pi. (commit: 2252f6f)
 
 ### Fixed

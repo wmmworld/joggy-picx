@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-03
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — feat(tools): setup_pi.sh — idempotent onboarding script รวม all hard-won knowledge จาก 2026-06-03 debug session ✅
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Battery test 4h10m PASS ✅ — edge+capture active ตลอด, mem +25Mi/4h, temp max 46.9°C, power cut recovery OK, 12 รูป upload ไม่ตก
 
 ---
 
@@ -160,6 +160,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-03 (Battery Test — PASS ✅)
+- [Claude] **Battery test 4h10m PASS** — 14:23–18:33 ไม่มี service crash แม้แต่ครั้งเดียว (50 readings ทุก 5 นาที). Memory: 542Mi→567Mi (+25Mi/4h, ไม่มี leak). Temp: 41.9–46.9°C (max ต่ำกว่า 70°C threshold มาก). Photos: 12 รูป upload สำเร็จทุกใบ. Power cut recovery: services auto-restart และ upload ได้ทันทีหลัง reboot. Pi 5 + Canon EOS RP พร้อมสนามจริง ✅
 
 ### 2026-06-03 (Pi Setup Script + Two-Bug Saga Resolved)
 - [Claude] **feat(tools): `tools/setup_pi.sh`** ✅ — idempotent bash script สำหรับ onboard Pi ใหม่ตั้งแต่ blank Raspberry Pi OS: install packages (gphoto2, uv, git, acl), udev rule Canon EOS RP, clone/update repo, uv venv + deps, create photo folders, install joggy-edge (system service) + joggy-capture (user service), loginctl enable-linger, interactive prompt สำหรับ INGEST_URL + EVENT_TOKEN → write .env, start services, smoke test /healthz. Encodes all lessons learned 2026-06-03 (commit: 2252f6f)
