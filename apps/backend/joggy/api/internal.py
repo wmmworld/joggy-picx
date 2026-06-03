@@ -336,7 +336,8 @@ async def issue_partner_api_key(
     db: AsyncSession = Depends(get_db),
     claims: InternalUserClaims = Depends(verify_internal_user),
 ) -> PartnerKeyOut:
-    _ensure_staff_organizer_access(claims, organizer_id)
+    # Codex: Partner API key ออก external scopes ได้รวมถึง erasure:write จึงต้องเป็น admin-only
+    _ensure_admin(claims)
 
     organizer_result = await db.execute(select(Organizer).where(Organizer.id == organizer_id))
     organizer = organizer_result.scalar_one_or_none()
@@ -380,7 +381,8 @@ async def revoke_partner_api_key(
     db: AsyncSession = Depends(get_db),
     claims: InternalUserClaims = Depends(verify_internal_user),
 ) -> None:
-    _ensure_staff_organizer_access(claims, organizer_id)
+    # Codex: revoke key เป็น credential-management action จึงจำกัดให้ admin เท่านั้น
+    _ensure_admin(claims)
 
     key_result = await db.execute(
         select(PartnerApiKey).where(
