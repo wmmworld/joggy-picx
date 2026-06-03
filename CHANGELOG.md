@@ -23,6 +23,7 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Security
+- [Claude] L-003 quick win: `tools/setup_pi.sh` now `chmod 600` Pi `.env` after writing (contains long-lived EVENT_TOKEN) + tightens existing `.env` on re-run for previously-deployed Pis (commit: a2e10a3)
 - [Codex] Phase 5 pre-production backend security audit — created `docs/security-audit-2026-06-03.md`; fixed 1 Critical + 6 High findings as separate commits: C-001 public photo lookup now checks `event.organizer_id == PartnerKeyClaims.organizer_id` before returning signed URLs (`90a4816`); H-001 ingest now reads uploads in bounded chunks and validates JPEG/PNG magic bytes instead of trusting `Content-Type` (`0b4133f`); H-002 ingest now rate-limits per Event Token id through the existing Redis fail-open limiter (`08b627c`); H-003 internal Supabase JWT auth now requires issuer + required claims (`c7f4059`); H-004 production config rejects default/weak `SECRET_KEY` (`fcd0419`); H-005 Partner API key issue/revoke is admin-only (`d1ba9fe`); H-006 erasure worker fails the job when R2 delete fails so storage objects are not orphaned behind a completed erasure (`048fce4`). Verification: backend pytest 76/76 passed; `uv pip list --outdated` completed; `pip-audit` not installed in current env.
 
 ### Added
