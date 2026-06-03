@@ -22,6 +22,9 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 
 ## [Unreleased]
 
+### Fixed
+- [Claude] **Pi capture systemd unit — strftime escape** (`apps/edge/infra/joggy-capture.service`): `--filename ".../%Y%m%d_%H%M%S.jpg"` ทำให้ systemd กิน `%Y/%m/%d/%H/%M/%S` เป็น systemd specifiers (state dir UUID, hostname ฯลฯ) ก่อนส่งให้ gphoto2 → filename เพี้ยนเป็น path ที่ไม่มีอยู่จริง → capture fail ทุกครั้ง → restart loop. Fix: escape เป็น `%%Y%%m%%d_%%H%%M%%S` ให้ systemd pass literal `%` ไปให้ gphoto2 strftime. ผลข้างเคียง: pipeline พังเงียบมานานเพราะ service `active (running)` แต่ไม่ trigger capture จริง — diagnose ยากเพราะดูปกติ. เพิ่ม hardening: `ExecStartPre=/bin/sleep 5` (USB enumeration race), `Restart=always` (recover from clean exit), `TimeoutStartSec=60` (commit: 444b51e). Verified: 19/19 รูปขึ้น dashboard end-to-end ✅
+
 ### Added
 - [Cursor] Phase 5: `apps/frontend/components/events/GenerateEventTokenModal.tsx` — two-step modal for Pi Event Token generation: Step 1 (confirm) shows event name + warning "Token จะแสดงครั้งเดียว" + amber banner with Pi .env instructions; Step 2 (success) shows plaintext token in readonly input (click-to-select, monospace font), "📋 คัดลอก" button with navigator.clipboard.writeText(), toast "คัดลอกแล้ว" 2s, token_prefix + expires_at (formatThaiDateTime), red banner "คัดลอกตอนนี้ — Token จะไม่แสดงอีก", Pi setup code block; apiPost<EventTokenResponse>('/internal/events/{id}/tokens') on generate; error inline display; modal reset on close
 - [Cursor] Phase 5: `apps/frontend/app/(internal)/dashboard/events/[id]/page.tsx` — added "🔑 สร้าง Event Token" button (emerald-600, after delete button) + showTokenModal state + GenerateEventTokenModal mount with event.id + event.name props

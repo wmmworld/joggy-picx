@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-03
-ผู้อัปเดตล่าสุด: Cursor (Frontend Specialist) — Phase 5 Event Token UI ✅ (GenerateEventTokenModal + wire to event detail page, tsc 0 errors)
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — fix(pi): escape %% ใน systemd unit (filename เพี้ยนจาก %Y%m%d → %% literal) → end-to-end ทำงานสมบูรณ์ 19 รูป ✅
 
 ---
 
@@ -160,6 +160,11 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-03 (Pi Capture Service — Critical Bug Fix)
+- [Claude] **fix(pi): escape `%%` ใน systemd unit** ✅ — `apps/edge/infra/joggy-capture.service`: `--filename ".../%Y%m%d_%H%M%S.jpg"` ทำให้ systemd expand `%Y/%m/%H/%M/%S/%d` เป็น systemd specifiers (state dir, hostname, etc.) → filename เพี้ยนเป็น `/home/pi/photos/inbox//etc/systemd/system<uuid>/run/credentials/...` → gphoto2 capture fail → restart loop ตลอด. Fix: เปลี่ยนเป็น `%%Y%%m%%d_%%H%%M%%S` + เพิ่ม `ExecStartPre=/bin/sleep 5` (USB enumeration race) + `Restart=always` (recover from clean gphoto2 exit) + `TimeoutStartSec=60` (commit: 444b51e)
+- [Claude] **End-to-end verified post-fix** ✅ — กล้องกดชัตเตอร์ → service capture detect → edge daemon upload → dashboard เห็น 19 รูป (จาก 16) — capture latency ~20s รวม upload
+- [Claude] Token rotation verified end-to-end ✅ — UI generate token → CEO copy → `sed -i ...` Pi `.env` → `systemctl restart joggy-edge` → upload กลับมาทำงานปกติ (เดิม token expire ทำให้ pipeline พัง)
 
 ### 2026-06-03 (Phase 5 — Event Token Generation UI)
 - [Cursor] Event Token Generation UI ✅ — `components/events/GenerateEventTokenModal.tsx` created: 2-step modal (confirm generation → show plaintext token with copy button), one-time display warning, Pi setup instructions, formatThaiDateTime integration, clipboard API + Event detail page: added "🔑 สร้าง Event Token" button (emerald-600), wire modal with state + onClose handler — tsc 0 errors ✅
