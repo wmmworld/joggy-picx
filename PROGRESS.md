@@ -114,7 +114,8 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 
 ### Phase 5 — Polish + First Real Test (วันที่ 21–25)
 - [ ] Mobile auto-trigger + NTP + battery monitor (Claude)
-- [ ] Security audit + final perf tuning (Codex)
+- [x] Security audit + Critical/High fixes (Codex) ✅ — report `docs/security-audit-2026-06-03.md`, 1 Critical + 6 High fixed, backend tests 76/76 pass
+- [ ] Final perf tuning (Codex)
 - [x] Mobile-responsive UI + final polish (Claude) ✅
 - [ ] Stress test + parallel load test (Antigravity)
 - **Milestone:** พร้อมทดสอบจริงในสนาม
@@ -160,6 +161,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-03 (Phase 5 — Security Audit + Critical/High Fixes)
+- [Codex] Pre-production backend security audit ✅ — สร้าง `docs/security-audit-2026-06-03.md`; พบ 1 Critical + 6 High และแก้ครบเป็น commit แยก: public photos tenant scope, ingest magic-byte/bounded-read validation, ingest rate limit per Event Token, Supabase JWT issuer required, production default SECRET_KEY rejected, partner key management admin-only, erasure worker fail เมื่อ R2 delete fail. Verification: `cd apps/backend && uv run pytest tests/ -v` ผ่าน 76/76; `uv pip list --outdated` run แล้ว (มี package outdated บันทึกในรายงาน); `pip-audit` ไม่อยู่ใน environment จึงยังไม่ได้รัน CVE scan.
 
 ### 2026-06-03 (Phase 5 — Mobile-Responsive UI)
 - [Claude] Phase 5 mobile-responsive UI polish ✅ — 6 files updated following `docs/cursor-tasks/phase5-mobile-responsive.md`: (1) `layout.tsx` viewport meta; (2) dashboard responsive padding + h1 sizing; (3) events page full-width button + header; (4) event detail flex-wrap actions + breadcrumb sizing + photo link full-width mobile; (5) photo gallery PRIMARY: search input text-base (iOS zoom fix), grid 2-col mobile→3-col tablet→4-col desktop, gap-2 md:gap-4, aspect-square image container, lightbox touch-none, pagination flex-wrap; (6) review queue stats flex-wrap + table min-w-[600px]. TypeScript 0 errors. CEO can now monitor photos on mobile (375px–430px) at marathon events without breaking desktop layout. (commit: ae87c84)
