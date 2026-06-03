@@ -6,6 +6,7 @@ Claude (Tech Lead) — Phase 2 Day 3
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,6 +45,17 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.app_env == "development"
+
+    @model_validator(mode="after")
+    def _reject_unsafe_production_secrets(self) -> "Settings":
+        # Codex: production ต้อง fail-fast ถ้ายังใช้ placeholder secret จาก dev
+        if self.is_production and (
+            not self.secret_key
+            or self.secret_key == "change-me-in-production"
+            or len(self.secret_key) < 32
+        ):
+            raise ValueError("SECRET_KEY must be set to a strong non-default value in production")
+        return self
 
 
 @lru_cache
