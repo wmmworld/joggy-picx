@@ -202,9 +202,11 @@ export default function ReviewQueuePage() {
       {/* Cursor: Stats bar — only when event selected and data loaded */}
       {selectedEventId && !queueLoading && (
         <div className="bg-white rounded-lg shadow p-4">
-          <span className="px-3 py-1 bg-sky-100 text-sky-700 text-sm font-medium rounded">
-            {items.length} รูปรอตรวจสอบ
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="px-3 py-1 bg-sky-100 text-sky-700 text-sm font-medium rounded">
+              {items.length} รูปรอตรวจสอบ
+            </span>
+          </div>
         </div>
       )}
 
@@ -240,17 +242,18 @@ export default function ReviewQueuePage() {
       ) : queueLoading ? (
         // Cursor: Loading skeleton
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="px-4 py-3 text-left font-semibold text-slate-700 w-12">☐</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">รูปภาพ</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">บิบ + override</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">สาเหตุ</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">จุดถ่าย</th>
-                <th className="px-4 py-3 text-center font-semibold text-slate-700">การจัดการ</th>
-              </tr>
-            </thead>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
+              <thead>
+                <tr className="border-b bg-slate-50">
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 w-12">☐</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">รูปภาพ</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">บิบ + override</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">สาเหตุ</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">จุดถ่าย</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-700">การจัดการ</th>
+                </tr>
+              </thead>
             <tbody>
               {[1, 2, 3].map((i) => (
                 <tr key={i} className="border-b">
@@ -276,6 +279,7 @@ export default function ReviewQueuePage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : items.length === 0 ? (
         // Cursor: Empty state — no items
@@ -286,7 +290,7 @@ export default function ReviewQueuePage() {
         // Cursor: Main table with data
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b bg-slate-50">
                   <th className="px-4 py-3 text-left font-semibold text-slate-700 w-12">

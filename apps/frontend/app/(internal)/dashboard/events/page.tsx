@@ -24,14 +24,14 @@ export default function EventsPage() {
       </Link>
 
       {/* Cursor: Header section + Create button */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
         <div>
-          <h1 className="text-3xl font-bold">งานวิ่ง</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">งานวิ่ง</h1>
           <p className="text-slate-600 mt-1">ดูและจัดการงานวิ่งทั้งหมด</p>
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="bg-sky-600 text-white px-4 py-2 rounded hover:bg-sky-700 text-sm"
+          className="bg-sky-600 text-white px-4 py-2 rounded hover:bg-sky-700 text-sm font-medium w-full md:w-auto"
         >
           + สร้างงานใหม่
         </button>

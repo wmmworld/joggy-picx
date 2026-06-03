@@ -116,7 +116,7 @@ export default function EventPhotosPage() {
               placeholder="🔍 ค้นหาบิบ..."
               value={bibInput}
               onChange={(e) => setBibInput(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm"
+              className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-sky-500 text-base"
             />
           </div>
 
@@ -179,7 +179,7 @@ export default function EventPhotosPage() {
 
       {/* Cursor: Loading skeleton */}
       {isLoading ? (
-        <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="bg-white rounded-lg overflow-hidden shadow">
               <div className="aspect-square bg-slate-200 animate-pulse" />
@@ -206,7 +206,7 @@ export default function EventPhotosPage() {
       ) : (
         // Cursor: Photo grid
         <>
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-4">
             {photosData?.items.map((photo) => (
               <PhotoCard
                 key={photo.photo_id}
@@ -218,11 +218,13 @@ export default function EventPhotosPage() {
 
           {/* Cursor: Pagination bar */}
           {photosData && photosData.pages > 1 && (
-            <PaginationBar
-              currentPage={photosData.page}
-              totalPages={photosData.pages}
-              onPageChange={goToPage}
-            />
+            <div className="flex justify-center">
+              <PaginationBar
+                currentPage={photosData.page}
+                totalPages={photosData.pages}
+                onPageChange={goToPage}
+              />
+            </div>
           )}
         </>
       )}
@@ -230,7 +232,7 @@ export default function EventPhotosPage() {
       {/* Cursor: Lightbox modal */}
       {lightboxUrl && (
         <div
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 touch-none"
           onClick={() => setLightboxUrl(null)}
         >
           <img
@@ -256,7 +258,7 @@ function PhotoCard({
   return (
     <div className="bg-white rounded-lg overflow-hidden shadow hover:shadow-md transition-shadow cursor-pointer">
       {/* Cursor: Thumbnail */}
-      <div className="aspect-square bg-slate-100 relative">
+      <div className="aspect-square bg-slate-100 relative overflow-hidden">
         {photo.thumbnail_url ? (
           <img
             src={photo.thumbnail_url}
@@ -369,7 +371,7 @@ function PaginationBar({
   };
 
   return (
-    <div className="flex items-center justify-center gap-2">
+    <div className="flex items-center justify-center gap-2 flex-wrap">
       {/* Cursor: Previous button */}
       <button
         onClick={() => onPageChange(currentPage - 1)}

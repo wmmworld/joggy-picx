@@ -5,9 +5,9 @@ import Link from "next/link";
 // Cursor: Main dashboard page (Phase 2) — nav cards + quick actions
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6">
       <header className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
         <p className="text-sm text-slate-600 mt-1">
           {/* Cursor: Internal User dashboard — Admin/Staff only */}
           หน้าหลัก Joggy-PicX สำหรับ Admin / Staff

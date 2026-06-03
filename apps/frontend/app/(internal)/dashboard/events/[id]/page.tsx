@@ -81,7 +81,7 @@ export default function EventDetailPage() {
   return (
     <div className="space-y-6">
       {/* Claude: Top navigation — Dashboard + Events list */}
-      <div className="flex items-center gap-3 text-sm">
+      <div className="flex items-center gap-2 text-xs sm:text-sm">
         <Link href="/dashboard" className="text-sky-600 hover:underline">
           ← Dashboard
         </Link>
@@ -92,11 +92,11 @@ export default function EventDetailPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold">{event.name}</h1>
-            <p className="text-slate-600 mt-1">Event ID: {event.id}</p>
-            <p className="text-slate-600 text-sm">Organizer: {event.organizer_id}</p>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl md:text-3xl font-bold break-words">{event.name}</h1>
+            <p className="text-slate-600 mt-1 text-sm truncate">Event ID: {event.id}</p>
+            <p className="text-slate-600 text-xs sm:text-sm truncate">Organizer: {event.organizer_id}</p>
           </div>
           <span
             className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -117,7 +117,7 @@ export default function EventDetailPage() {
         <div className="mt-4">
           <Link
             href={`/dashboard/events/${eventId}/photos`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm font-medium"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm font-medium w-full sm:w-auto"
           >
             📷 ดูรูปภาพ
           </Link>
@@ -172,22 +172,22 @@ export default function EventDetailPage() {
       )}
 
       {/* Claude: Action buttons */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setShowEditModal(true)}
-          className="px-4 py-2 bg-slate-100 text-slate-700 rounded hover:bg-slate-200 border border-slate-300"
+          className="px-4 py-2 bg-slate-100 text-slate-700 rounded hover:bg-slate-200 border border-slate-300 text-sm"
         >
           ✏️ แก้ไขงาน
         </button>
         <button
           onClick={() => setShowDeleteConfirm(true)}
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
         >
           🗑️ ลบงาน
         </button>
         <button
           onClick={() => setShowTokenModal(true)}
-          className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+          className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm"
         >
           🔑 สร้าง Event Token
         </button>
