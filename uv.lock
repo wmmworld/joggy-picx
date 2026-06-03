@@ -439,22 +439,22 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "alembic", specifier = ">=1.14" },
-    { name = "argon2-cffi", specifier = ">=23.1" },
-    { name = "asyncpg", specifier = ">=0.30" },
-    { name = "boto3", specifier = ">=1.38" },
+    { name = "alembic", specifier = ">=1.14,<2.0.0" },
+    { name = "argon2-cffi", specifier = ">=23.1,<26.0" },
+    { name = "asyncpg", specifier = ">=0.30,<1.0.0" },
+    { name = "boto3", specifier = ">=1.38,<2.0.0" },
     { name = "fastapi", specifier = ">=0.116.0,<1.0.0" },
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
     { name = "onnxruntime", specifier = ">=1.18.0,<2.0.0" },
     { name = "opencv-python-headless", specifier = ">=4.9.0,<5.0.0" },
-    { name = "pgvector", specifier = ">=0.3" },
+    { name = "pgvector", specifier = ">=0.3,<1.0.0" },
     { name = "pillow", specifier = ">=10.4.0,<12.0.0" },
     { name = "pydantic-settings", specifier = ">=2.10.0,<3.0.0" },
-    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.9" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.9,<3.0" },
     { name = "python-multipart", specifier = ">=0.0.20,<1.0.0" },
     { name = "redis", specifier = ">=6.0.0,<7.0.0" },
     { name = "rq", specifier = ">=2.6.0,<3.0.0" },
-    { name = "sqlmodel", specifier = ">=0.0.21" },
+    { name = "sqlmodel", specifier = ">=0.0.21,<1.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0,<1.0.0" },
 ]
 

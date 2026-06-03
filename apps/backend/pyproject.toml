@@ -12,17 +12,20 @@ dependencies = [
   "rq>=2.6.0,<3.0.0",
   "pydantic-settings>=2.10.0,<3.0.0",
   "python-multipart>=0.0.20,<1.0.0",
-  "sqlmodel>=0.0.21",
-  "alembic>=1.14",
-  "asyncpg>=0.30",
-  "pgvector>=0.3",
-  "boto3>=1.38",
+  # M-004 from audit 2026-06-03: every dep has explicit upper bound to prevent
+  # accidental major-version upgrades pulling in breaking changes during a
+  # production deploy. Bump intentionally via uv lock + tests, never via wildcards.
+  "sqlmodel>=0.0.21,<1.0.0",
+  "alembic>=1.14,<2.0.0",
+  "asyncpg>=0.30,<1.0.0",
+  "pgvector>=0.3,<1.0.0",
+  "boto3>=1.38,<2.0.0",
   "onnxruntime>=1.18.0,<2.0.0",
   "numpy>=1.26.0,<3.0.0",
   "opencv-python-headless>=4.9.0,<5.0.0",
   "Pillow>=10.4.0,<12.0.0",
-  "argon2-cffi>=23.1",
-  "pyjwt[crypto]>=2.9",   # Supabase JWT verify (RS256/HS256) + PyJWKClient
+  "argon2-cffi>=23.1,<26.0",
+  "pyjwt[crypto]>=2.9,<3.0",   # Supabase JWT verify (RS256/HS256) + PyJWKClient
 ]
 
 [dependency-groups]
