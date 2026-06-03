@@ -35,6 +35,9 @@ async def verify_internal_user(
     # ถ้า project ใหม่ใช้ asymmetric (RS256) ค่อย fallback ไป JWKS
     payload = None
     last_error: Exception | None = None
+    # Codex: Supabase JWT ต้องผูกกับ project issuer เดียวกับ SUPABASE_URL ไม่ใช่แค่ signature/audience
+    expected_issuer = f"{settings.supabase_url.rstrip('/')}/auth/v1"
+    required_claims = {"require": ["sub", "aud", "iss", "exp"]}
 
     # Try 1: HS256 with jwt_secret (Supabase default)
     if settings.supabase_jwt_secret:
@@ -44,11 +47,18 @@ async def verify_internal_user(
                 settings.supabase_jwt_secret,
                 algorithms=["HS256"],
                 audience="authenticated",
+                issuer=expected_issuer,
+                options=required_claims,
             )
         except jwt.ExpiredSignatureError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token expired",
+            )
+        except (jwt.InvalidIssuerError, jwt.InvalidAudienceError, jwt.MissingRequiredClaimError):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
             )
         except Exception as e:
             last_error = e  # fall through to RS256 attempt
@@ -65,11 +75,18 @@ async def verify_internal_user(
                 signing_key.key,
                 algorithms=["ES256", "RS256"],
                 audience="authenticated",
+                issuer=expected_issuer,
+                options=required_claims,
             )
         except jwt.ExpiredSignatureError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token expired",
+            )
+        except (jwt.InvalidIssuerError, jwt.InvalidAudienceError, jwt.MissingRequiredClaimError):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
             )
         except Exception as e:
             rs256_error = e
