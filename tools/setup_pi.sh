@@ -222,7 +222,15 @@ UPLOADED_DIR=/home/pi/photos/uploaded
 FAILED_DIR=/home/pi/photos/failed
 LOG_LEVEL=INFO
 EOF
-    ok ".env written to ${ENV_FILE}"
+    # L-003 from security audit 2026-06-03: lock down .env (contains EVENT_TOKEN)
+    chmod 600 "$ENV_FILE"
+    ok ".env written to ${ENV_FILE} (mode 600)"
+fi
+
+# Idempotency: also tighten mode on existing .env that may have been created
+# before this guard was added.
+if [[ -f "$ENV_FILE" ]]; then
+    chmod 600 "$ENV_FILE"
 fi
 
 section "Step 9: Start services"
