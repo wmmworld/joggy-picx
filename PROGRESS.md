@@ -4,8 +4,8 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-06-02
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Pi auto-start ✅ — joggy-capture.service (gphoto2 tethered) + joggy-edge.service, fully unattended (16 photos auto-uploaded after Pi reboot test)
+วันที่อัปเดตล่าสุด: 2026-06-03
+ผู้อัปเดตล่าสุด: Cursor (Frontend Specialist) — Phase 5 Event Token UI ✅ (GenerateEventTokenModal + wire to event detail page, tsc 0 errors)
 
 ---
 
@@ -160,6 +160,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-03 (Phase 5 — Event Token Generation UI)
+- [Cursor] Event Token Generation UI ✅ — `components/events/GenerateEventTokenModal.tsx` created: 2-step modal (confirm generation → show plaintext token with copy button), one-time display warning, Pi setup instructions, formatThaiDateTime integration, clipboard API + Event detail page: added "🔑 สร้าง Event Token" button (emerald-600), wire modal with state + onClose handler — tsc 0 errors ✅
 
 ### 2026-05-31 (Phase 4C — Photo Gallery Frontend)
 - [Cursor] Phase 4C Tasks A, B, C ✅ — `hooks/useEventPhotos.ts` created (PhotoItem, EventPhotosResponse, PhotoFilters types + useEventPhotos hook with URL state) + `photos/page.tsx` full gallery page: URL state management (useSearchParams/useRouter), debounced bib filter (300ms), checkpoint + AI status dropdowns, photo grid (3 cols mobile / 4 cols md+), ConfidenceBadge + AIStatusBadge components, pagination bar (1-N with ellipsis), lightbox modal, loading skeleton, empty states + Event detail page: added "📷 ดูรูปภาพ" Link button — tsc 0 errors ✅

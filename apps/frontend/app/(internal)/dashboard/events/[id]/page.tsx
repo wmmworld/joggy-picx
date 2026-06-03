@@ -7,6 +7,7 @@ import { useEventDetail } from "../../../../../hooks/useEventDetail";
 import { formatThaiDateTime } from "../../../../../lib/datetime";
 import { apiDelete } from "../../../../../lib/api";
 import EditEventModal from "../../../../../components/events/EditEventModal";
+import GenerateEventTokenModal from "../../../../../components/events/GenerateEventTokenModal";
 
 // Cursor: Event detail page with custom hook (Phase 2)
 export default function EventDetailPage() {
@@ -23,6 +24,8 @@ export default function EventDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Cursor: Event Token generation state — Phase 5
+  const [showTokenModal, setShowTokenModal] = useState(false);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -182,6 +185,12 @@ export default function EventDetailPage() {
         >
           🗑️ ลบงาน
         </button>
+        <button
+          onClick={() => setShowTokenModal(true)}
+          className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+        >
+          🔑 สร้าง Event Token
+        </button>
       </div>
 
       {/* Claude: Edit modal */}
@@ -244,6 +253,16 @@ export default function EventDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cursor: Event Token Generation Modal — Phase 5 */}
+      {event && (
+        <GenerateEventTokenModal
+          isOpen={showTokenModal}
+          eventId={event.id}
+          eventName={event.name}
+          onClose={() => setShowTokenModal(false)}
+        />
       )}
     </div>
   );
