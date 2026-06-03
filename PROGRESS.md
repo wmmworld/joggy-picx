@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-03 (เย็น)
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Quick wins audit backlog ✅ M-001 typed UUID/bounded bib + M-004 dep upper bounds + L-003 chmod 600; Antigravity brief stress test พร้อมส่ง
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Stress test (DIY) ✅ — Antigravity quota หมดเลยเขียนเอง: 3 scenarios in-process, 20,555 req รวม, 0 × 5xx, rate limit H-002 fix verified fired 914 × 429
 
 ---
 
@@ -161,6 +161,9 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-03 (เย็น — Stress Test + Audit Quick Wins)
+- [Claude] **Stress test DIY** ✅ — Antigravity hit quota หลังทำได้บางส่วน (cloud worktree ไม่ sync มา local) เลยเขียนเอง: `tools/stress_test.py` (3 scenarios, httpx ASGITransport, mocked DB/R2/RQ, Redis จริงผ่าน Docker Compose) + `docs/stress-test-2026-06-03.md`. ผล 60s/scenario: A ingest burst 1,074 req (240×202 + 834×429 rate limit) p95 16ms · B public 19,281 req @ 321 RPS p95 31ms · C rate limit fast 200 req (120×202 + 80×429 exact threshold). **0 × 5xx ทุก scenario.** ยืนยัน Codex H-002 rate-limit fix ใช้งานจริง — fired 914 × 429 รวม. ข้อจำกัด: in-process benchmark ไม่วัด Postgres/R2/network จริง, สั่งทำ staging VPS load test เป็น follow-up (commit: a9fdc61)
 
 ### 2026-06-03 (เย็น — Audit Quick Wins + Antigravity brief)
 - [Claude] **M-004 dependency upper bounds** ✅ — `apps/backend/pyproject.toml`: เพิ่ม upper bound `<NextMajor>` ให้ sqlmodel/alembic/asyncpg/pgvector/boto3/argon2-cffi/pyjwt ที่เดิมเปิด open. `uv lock` resolve 71 packages clean, 80/80 tests pass (commit: e03437f)
