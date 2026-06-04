@@ -22,6 +22,12 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 
 ## [Unreleased]
 
+### Added
+- [Claude] **Phase 6 bib detector fine-tune deliverables**: full design spec (`docs/superpowers/specs/2026-06-04-bib-finetune-design.md`) + CEO walkthrough (`tools/train/README.md`) + Colab notebook (`tools/train/train_bib_colab.ipynb`, T4 GPU, ~30-60 min run) + ONNX evaluation script (`tools/train/eval_bib.py`, CI-gating with recall/precision targets) + public dataset research notes (`tools/train/datasets.md`). Hybrid strategy: ~500 public Roboflow Universe images + 180 Thai marathon photos annotated + 20 Thai holdout. Toolchain: Roboflow annotate + Colab Free train. Success criteria: recall ≥ 0.90, precision ≥ 0.80, mAP50 ≥ 0.85, inference < 1s/image. CEO starts after 200-image selection from 10K+ archive (commit: 4b6f1f7)
+
+### Fixed
+- [Claude] **Redis port 6380 not exposed on host** (`infra/docker-compose.yml`): dev backend running outside Docker (`uv run uvicorn ...`) hit ConnectionRefused trying to enqueue RQ jobs → every `/ingest/photos` request returned HTTP 500 → Pi retry loop with no upload progress. Added `ports: ["6380:6379"]` to redis service with inline comment explaining why. In-Docker services keep using internal service name (commit: 0300708)
+
 ### Security
 - [Claude] **L-002 event token prefix 8 → 12 chars** — `apps/backend/joggy/api/internal.py` + `joggy/middleware/event_token.py` + `joggy/db/models.py`. Token display/lookup prefix bumped from 4 random URL-safe chars (16M combinations) to 8 random chars (281T combinations). Backward-compat preserved via dual lookup (12-char first, 8-char fallback) so live tokens issued before this commit continue working. 4 new middleware tests verify both code paths (84/84 pass, was 80) (commit: 74a94c3)
 

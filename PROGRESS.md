@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-03 (เย็น)
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Audit cleanups รอบเย็น: L-002 prefix 12 chars (backward-compat) + tools/monitor.sh field health check; tests 84/84 pass
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Bib model fine-tune deliverables พร้อม + Redis port fix + Phase 6 brainstorm จบ (Hybrid dataset, Roboflow+Colab toolchain)
 
 ---
 
@@ -161,6 +161,12 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-04 (เช้า — Phase 6 Bib Fine-tune Deliverables + Pipeline Recovery)
+- [Claude] **Phase 6 bib fine-tune deliverables** ✅ — 5 ไฟล์พร้อม CEO เริ่ม annotate ทันทีหลังคัดรูป 200 ตัว: design spec ครบ (Hybrid 500 public + 180 Thai train + 20 holdout, success criteria recall≥0.90/precision≥0.80/mAP50≥0.85, toolchain Roboflow+Colab Free), tools/train/README.md step-by-step walkthrough, train_bib_colab.ipynb (run-all on T4 GPU, ~30-60 min), eval_bib.py (onnxruntime + opencv, CI-gating ready), datasets.md research notes (commit: 4b6f1f7)
+- [Claude] Bib model brainstorm ✅ — CEO เลือก Hybrid strategy + Roboflow annotate + Colab train + ใช้ photos จาก 10K+ archive ของงานวิ่งที่ CEO จัดเอง
+- [Claude] **Pipeline recovery วันใหม่** — diagnose 4 ปัญหาซ้อนกัน: (1) Redis container ปิด หลัง CEO shutdown laptop เมื่อคืน, (2) docker-compose ขาด `ports: 6380:6379` ทำให้ host ไม่เห็น Redis (fix: commit 0300708), (3) WiFi profile = Public → Windows Firewall block inbound แม้มี rule (fix: `Set-NetConnectionProfile ... Private`), (4) Laptop IP เปลี่ยน DHCP จาก .38 → .36 ระหว่าง debug (fix: sed Pi .env). ทุกอย่างกลับมาทำงาน — Pi รูปเช้านี้ upload สำเร็จ
+- [Claude] Backlog เพิ่ม 4 รายการ: DEV-1 ingest 202 graceful ถ้า Redis ตาย, DEV-2 ใช้ Tailscale IP, DEV-3 watchdog re-enqueue, DEV-4 health widget
 
 ### 2026-06-03 (ค่ำ — L-002 + monitor.sh)
 - [Claude] **L-002 event token prefix 12 chars** ✅ — `internal.py` issue `plaintext[:8]` → `[:12]` + `middleware/event_token.py` lookup โดย 12-char prefix แล้ว fallback 8-char สำหรับ legacy tokens (Pi live token ที่ออกตอนเช้ายังใช้ได้ไม่ต้อง rotate). 4 new tests ครอบคลุม new prefix lookup + legacy fallback. 84/84 pass (was 80) (commit: 74a94c3)
