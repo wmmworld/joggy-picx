@@ -23,6 +23,7 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 ## [Unreleased]
 
 ### Added
+- [Claude] **DEV-2 Tailscale recommendation for dev mode** (`apps/edge/README.md`): added tip block explaining how to use Tailscale 100.x.x.x IPs for Pi `INGEST_URL` instead of LAN IPs. Solves the laptop-IP-changes-on-DHCP-renew pain that ate 2 hours this morning. Verified working: Pi → laptop via Tailscale = HTTP 200, no firewall rule needed, E2E encrypted (commit: 926d698)
 - [Claude] **Phase 6 bib detector fine-tune deliverables**: full design spec (`docs/superpowers/specs/2026-06-04-bib-finetune-design.md`) + CEO walkthrough (`tools/train/README.md`) + Colab notebook (`tools/train/train_bib_colab.ipynb`, T4 GPU, ~30-60 min run) + ONNX evaluation script (`tools/train/eval_bib.py`, CI-gating with recall/precision targets) + public dataset research notes (`tools/train/datasets.md`). Hybrid strategy: ~500 public Roboflow Universe images + 180 Thai marathon photos annotated + 20 Thai holdout. Toolchain: Roboflow annotate + Colab Free train. Success criteria: recall ≥ 0.90, precision ≥ 0.80, mAP50 ≥ 0.85, inference < 1s/image. CEO starts after 200-image selection from 10K+ archive (commit: 4b6f1f7)
 
 ### Fixed
