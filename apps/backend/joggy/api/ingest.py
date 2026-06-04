@@ -6,6 +6,7 @@ Claude (Tech Lead) — Phase 2 Day 4
 
 import asyncio
 import hashlib
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -20,6 +21,8 @@ from joggy.middleware.event_token import EventTokenClaims, verify_event_token
 from joggy.middleware.rate_limit import check_rate_limit
 from joggy.services import r2
 from joggy.worker.queue import enqueue_process_photo
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -159,8 +162,21 @@ async def upload_photo(
     db.add(photo)
     await db.flush()  # ได้ photo.id ก่อน commit
 
-    # ── 6. Enqueue RQ job ─────────────────────────────────────────────────────
-    job_id = enqueue_process_photo(str(photo_id))
+    # ── 6. Enqueue RQ job (DEV-1: graceful if Redis is down) ──────────────────
+    # If Redis is unreachable, do NOT roll back the photo. The row + R2 object
+    # are durable, and a watchdog (DEV-3) can re-enqueue once Redis recovers.
+    # Returning 500 here caused infinite Pi retry + R2 duplicates on 2026-06-04.
+    job_id: str | None
+    enqueue_status = "queued"
+    try:
+        job_id = enqueue_process_photo(str(photo_id))
+    except Exception as exc:  # noqa: BLE001 — intentionally broad; Redis/RQ throw many subclasses
+        logger.warning(
+            "Enqueue failed for photo %s — Redis down? Photo accepted, AI pending. Error: %s",
+            photo_id, exc,
+        )
+        job_id = None
+        enqueue_status = "pending_enqueue"
 
     # ── 7. Audit log ──────────────────────────────────────────────────────────
     audit = AuditLog(
@@ -174,6 +190,7 @@ async def upload_photo(
             "sha256": sha256,
             "size_bytes": len(raw),
             "job_id": job_id,
+            "enqueue_status": enqueue_status,
         },
     )
     db.add(audit)
@@ -182,5 +199,5 @@ async def upload_photo(
     return {
         "photo_id": str(photo_id),
         "job_id": job_id,
-        "status": "queued",
+        "status": enqueue_status,
     }
