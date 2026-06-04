@@ -51,6 +51,11 @@ services:
     image: redis:7.4-alpine
     container_name: joggy-redis
     command: ["redis-server", "--appendonly", "yes"]
+    # Expose 6380 on host so dev backend running outside Docker (uv run uvicorn ...)
+    # can reach Redis. In-network services (fastapi, worker) still use 6379 via
+    # service name (REDIS_URL=redis://redis:6379/0).
+    ports:
+      - "6380:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
