@@ -1,5 +1,10 @@
 # Canon EOS RP → Raspberry Pi 5 — FTP Test Plan
 
+> ⚠️ **SUPERSEDED 2026-05-29** — Canon EOS RP firmware ปัจจุบันไม่มี FTP feature.
+> Path เปลี่ยนเป็น USB-C tether + gphoto2 (D-002 revised). Test plan ตัวจริงที่ใช้คือ
+> [`docs/canon-tether-test.md`](canon-tether-test.md). เอกสารนี้เก็บไว้เป็น historical
+> record ของช่วงสำรวจ Phase 1 Day 2 เท่านั้น — ห้ามใช้ deploy ใหม่.
+
 > เอกสารนี้คือ **test plan ภาคสนาม** สำหรับยืนยันสมมติฐานสำคัญ:
 > Canon EOS RP สามารถส่งรูปผ่าน WiFi FTP เข้า Raspberry Pi 5 ใน LAN เดียวกันได้
 > ทดสอบนี้คือ **gate ของ Phase 1** — ถ้าผ่าน → continue; ถ้าไม่ผ่าน → revisit D-002 (Pi เป็น REQUIREMENT)

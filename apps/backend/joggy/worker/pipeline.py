@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 from typing import TYPE_CHECKING
 
 import cv2

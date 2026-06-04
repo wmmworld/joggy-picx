@@ -19,7 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from joggy.api.schemas import (
     EventCreate,
     EventOut,
-    EventStatusUpdate,
     EventUpdate,
     PartnerKeyCreate,
     PartnerKeyOut,
