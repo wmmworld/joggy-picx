@@ -58,3 +58,8 @@ models/
 # Local tool state
 .claude/
 .cursor/
+
+# Training datasets (large, sensitive — keep out of repo)
+joggy_dataset/
+/dataset/
+*.zip
