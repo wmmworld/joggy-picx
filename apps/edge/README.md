@@ -36,6 +36,16 @@ EVENT_TOKEN=evt_REPLACE_ME
 DEVICE_ID=pi-001
 ```
 
+> **Tip for dev mode (laptop as backend):** Use a Tailscale IP instead of LAN IP
+> for `INGEST_URL`. Tailscale gives every device a stable 100.x.x.x address that
+> doesn't change when WiFi/DHCP renews, so you don't have to re-edit Pi `.env`
+> every time the laptop's IP changes. Setup:
+> 1. Install Tailscale on both laptop and Pi: https://tailscale.com/download
+> 2. Sign in with same account on both: `sudo tailscale up`
+> 3. Get laptop's Tailscale IP: `tailscale ip -4` on laptop
+> 4. Use that 100.x.x.x address in Pi `.env`: `INGEST_URL=http://100.x.x.x:8000/ingest/photos`
+> Tailscale traffic is end-to-end encrypted; no firewall rules needed.
+
 ### 4. Create runtime folders
 
 ```bash
