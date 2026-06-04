@@ -4,6 +4,7 @@ FastAPI application entrypoint — Joggy-PicX Backend.
 Claude (Tech Lead) — Phase 2 Day 3
 """
 
+import logging
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
@@ -14,7 +15,10 @@ from starlette.requests import Request as StarletteRequest
 
 from joggy.api import ingest, internal, public
 from joggy.core.config import get_settings
+from joggy.db.session import get_db
+from joggy.worker.recovery import reenqueue_pending_photos
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -25,6 +29,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup / shutdown hooks — Phase 3 เพิ่ม ONNX model preload ที่นี่."""
     # Startup
     # TODO Phase 3: preload ONNX models (yolov8n, paddleocr, buffalo_s)
+
+    # DEV-3: self-heal — re-enqueue photos whose initial enqueue failed
+    # (Redis was down at upload time). Safe no-op when there's nothing pending.
+    try:
+        async for db in get_db():
+            result = await reenqueue_pending_photos(db)
+            if result.pending_found > 0:
+                logger.info(
+                    "Startup recovery: pending=%d recovered=%d skipped=%d redis_down=%s",
+                    result.pending_found, result.recovered,
+                    result.skipped_already_recovered, result.stopped_redis_still_down,
+                )
+            break  # get_db is a generator with one yield
+    except Exception as exc:  # noqa: BLE001 — recovery must never block startup
+        logger.warning("Startup recovery sweep failed (non-fatal): %s", exc)
+
     yield
     # Shutdown — cleanup ถ้าจำเป็น
 

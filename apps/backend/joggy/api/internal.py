@@ -40,6 +40,7 @@ from joggy.db.models import (
 from joggy.services import r2
 from joggy.db.session import get_db
 from joggy.middleware.internal_auth import InternalUserClaims, verify_internal_user
+from joggy.worker.recovery import reenqueue_pending_photos
 
 router = APIRouter()
 _ph = argon2.PasswordHasher()
@@ -650,3 +651,33 @@ async def issue_event_token(
         event_id=event.id,
         event_name=event.name,
     )
+
+
+# ── DEV-3: manual watchdog trigger ────────────────────────────────────────────
+
+
+@router.post(
+    "/worker/reenqueue-pending",
+    status_code=status.HTTP_200_OK,
+    summary="DEV-3: Re-enqueue photos with pending_enqueue status (admin)",
+)
+async def reenqueue_pending_photos_endpoint(
+    db: AsyncSession = Depends(get_db),
+    claims: InternalUserClaims = Depends(verify_internal_user),
+) -> dict:
+    """Manually trigger the recovery sweep.
+
+    Backend startup also runs this automatically (see main.py lifespan).
+    Use this endpoint when Redis was down for an extended period and
+    backend has been up the whole time — no startup hook will fire.
+
+    Admin only.
+    """
+    _ensure_admin(claims)
+    result = await reenqueue_pending_photos(db)
+    return {
+        "pending_found": result.pending_found,
+        "recovered": result.recovered,
+        "skipped_already_recovered": result.skipped_already_recovered,
+        "stopped_redis_still_down": result.stopped_redis_still_down,
+    }
