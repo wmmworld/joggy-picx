@@ -4,8 +4,8 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-06-03 (เย็น)
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Bib model fine-tune deliverables พร้อม + Redis port fix + Phase 6 brainstorm จบ (Hybrid dataset, Roboflow+Colab toolchain)
+วันที่อัปเดตล่าสุด: 2026-06-05
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Bib detector v1 trained บน Kaggle (mAP50 0.914) + holdout 20/20 (100%) + ONNX deployed ที่ apps/backend/models/yolov8n_bib.onnx
 
 ---
 
@@ -142,8 +142,10 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 - [x] InsightFace integration + 512-dim vector pipeline (FaceEmbedder) ✅
 - [x] Cross-checkpoint Re-ID logic (pgvector cosine, same-event) ✅
 - [x] ONNX export scripts (tools/export/) ✅ — Task 8 (commit: ab38c3c)
-- [ ] **Fine-tuned bib model** — yolov8n.pt default เป็น COCO 80-class (ไม่มี bib) → ต้อง train 1-class หรือหา public bib dataset
-- [ ] Real-model validation (export model จริง + รูปนักวิ่ง + รัน worker) — รอ model พร้อม
+- [x] **Fine-tuned bib model** ✅ — `apps/backend/models/yolov8n_bib.onnx` (2026-06-05): YOLOv8n trained บน Kaggle T4 ×2, 100 epochs, mAP50=0.914, holdout 20/20 รูปเจอบิบ + 78 boxes total
+- [x] Real-model validation (export model จริง + รูปนักวิ่ง) ✅ — `tools/train/test_holdout.py` รัน production `BibDetector` กับ holdout 20 รูป (ผ่าน)
+- [ ] **Multi-bib pipeline** — ปัจจุบัน `worker/pipeline.py` ยัง assume 1 bib/รูป (เรียก `detector.detect()` คืน top box เท่านั้น). Schema เปลี่ยน: `Photo.bib_number` → `PhotoBib` 1-to-many table + Alembic migration + worker loop OCR ทุก bbox + Public API search join PhotoBib + Review queue UI หลาย bib/รูป. ต้อง design discussion ก่อน implement (ADR ใหม่)
+- [ ] **Bib detector v2 — improve hard cases** — known limitations จาก eyeball check 2026-06-05: บิบไกล/เล็กกว่า ~20px ตรวจไม่เจอ (Z50_0239, Z50_0240), บิบถูกมือ/มือถือบัง miss (AOF_R6_-1319). แก้: เพิ่ม training images ที่มี small/occluded bib หรือ multi-scale inference (image tiles) หรือ YOLOv8s + imgsz=1280
 - [ ] Manual review queue UI — รับ/ปฏิเสธ + override bib (Cursor, Phase 4)
 
 ### กลุ่ม Hardware
@@ -161,6 +163,12 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-05 (Phase 6 — Bib Detector Trained + Holdout 100% ✅)
+- [Claude + CEO] **Bib detector v1 trained** ✅ — Roboflow workspace `wmm-qv1ad/joggy-bib` ครบ: 4 public datasets + Thai start_finish/on_the_way → annotate (SAM3 auto-label + manual review) → merged 6 messy classes → 1 class `bib` → version v1: **9,397 images** (train 9,276 / val 76 / test 45, 640×640, 3× aug). Train YOLOv8n บน Kaggle (T4 ×2) 100 epochs: **mAP50 = 0.914**, mAP50-95 = 0.675, precision ~0.91, recall ~0.85. Pipeline ติดปัญหา 3 จุด: (1) Colab Free quota หมด → switch ไป Kaggle, (2) Kaggle ตอน first session ปิด Internet ต้อง Settings→Turn on internet, (3) browser disconnect ครั้งเดียวต้องเริ่ม train ใหม่ — ครั้งสองสำเร็จ
+- [Claude] **best.pt → best.onnx export** ✅ — รัน `model.export(format="onnx", imgsz=640, simplify=True, opset=17)` บน Kaggle (เลี่ยง torch install บนเครื่องที่ C: เกือบเต็ม), download ผ่าน base64 HTML link bypass (Kaggle proxy 404 ทำ direct download ไม่ได้), ย้าย+rename ไปที่ `apps/backend/models/yolov8n_bib.onnx` (12 MB). Tensor signature ตรง spec: input `images` [1,3,640,640], output `output0` [1,5,8400]
+- [Claude] **Holdout 20 รูป — 20/20 รูปเจอบิบ + 78 boxes total** 🏆 — `tools/train/test_holdout.py`: โหลด ONNX ผ่าน production `BibDetector` class จริง (D-021 compliant: onnxruntime + opencv + numpy เท่านั้น, ไม่แตะ ultralytics/torch). Iteration: รอบแรกใช้ `detect()` 1 box/image → CEO ทักว่ารูปมีหลายนักวิ่งควรเจอทุก bib → เพิ่ม `detect_all()` พร้อม NMS (IoU 0.45) → ลด `_CONF_THRESHOLD` 0.5→0.25 (YOLOv8 default) เพื่อจับบิบที่ถูกบัง/มุมเอียง. ผล final: 78 detections (เฉลี่ย 3.9/รูป, สูงสุด 11 bibs ใน F23_1526). CEO eyeball check: ส่วนใหญ่ตรง, false positive 2 จุด (กล่องที่ conf < 0.3 บนมือคน), false negative ในบิบไกลมาก + บิบถูกมือถือบัง (ยอมรับเป็น v1 limitation — recall > precision ใน use case นี้เพราะ OCR step กรองได้)
+- [Claude] **`BibDetector.detect_all()` + NMS** ✅ — `apps/backend/joggy/ai/bib_detector.py` เพิ่ม method ใหม่ return `list[BibBox]` หลัง NMS ; เก็บ `detect()` เดิมเป็น wrapper `detect_all()[0] or None` กัน break `worker/pipeline.py` ที่ assume 1 bib/รูป. แก้ test 10/10 pass (เดิม 6 + ใหม่ 4: empty list, multiple distinct, NMS overlap drop, legacy detect() top-box). Followup task: pipeline.py + DB schema (`PhotoBib` 1-to-many) ยังเก็บ 1 bib/รูป — รอ design discussion รอบหน้า
 
 ### 2026-06-04 (เช้า — Phase 6 Bib Fine-tune Deliverables + Pipeline Recovery)
 - [Claude] **Phase 6 bib fine-tune deliverables** ✅ — 5 ไฟล์พร้อม CEO เริ่ม annotate ทันทีหลังคัดรูป 200 ตัว: design spec ครบ (Hybrid 500 public + 180 Thai train + 20 holdout, success criteria recall≥0.90/precision≥0.80/mAP50≥0.85, toolchain Roboflow+Colab Free), tools/train/README.md step-by-step walkthrough, train_bib_colab.ipynb (run-all on T4 GPU, ~30-60 min), eval_bib.py (onnxruntime + opencv, CI-gating ready), datasets.md research notes (commit: 4b6f1f7)

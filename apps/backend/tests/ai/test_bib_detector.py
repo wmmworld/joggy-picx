@@ -37,7 +37,7 @@ def test_detect_returns_none_when_all_conf_zero():
 
 def test_detect_returns_none_below_threshold():
     output = np.zeros((1, 5, 8400), dtype=np.float32)
-    output[0, 4, 0] = 0.3   # below _CONF_THRESHOLD (0.5)
+    output[0, 4, 0] = 0.2   # below _CONF_THRESHOLD (0.25)
     assert BibDetector(_make_session(output)).detect(_make_img()) is None
 
 
@@ -80,3 +80,67 @@ def test_detect_clamps_bbox_to_image_bounds():
     assert result is not None
     assert result.x2 <= 320
     assert result.y2 <= 320
+
+
+# ── detect_all() / NMS ───────────────────────────────────────────────────────
+
+
+def test_detect_all_returns_empty_list_when_no_bibs():
+    output = np.zeros((1, 5, 8400), dtype=np.float32)
+    assert BibDetector(_make_session(output)).detect_all(_make_img()) == []
+
+
+def test_detect_all_returns_multiple_distinct_bibs():
+    """หลายนักวิ่งในรูปเดียว — ทุกกล่องต้องถูก return หลัง NMS."""
+    output = np.zeros((1, 5, 8400), dtype=np.float32)
+    # Bib A: far left of frame
+    output[0, 0, 0] = 100.0; output[0, 1, 0] = 200.0
+    output[0, 2, 0] = 60.0;  output[0, 3, 0] = 40.0
+    output[0, 4, 0] = 0.92
+    # Bib B: middle
+    output[0, 0, 1] = 320.0; output[0, 1, 1] = 200.0
+    output[0, 2, 1] = 60.0;  output[0, 3, 1] = 40.0
+    output[0, 4, 1] = 0.88
+    # Bib C: far right
+    output[0, 0, 2] = 540.0; output[0, 1, 2] = 200.0
+    output[0, 2, 2] = 60.0;  output[0, 3, 2] = 40.0
+    output[0, 4, 2] = 0.81
+
+    boxes = BibDetector(_make_session(output)).detect_all(_make_img())
+    assert len(boxes) == 3
+    # Sorted by confidence desc
+    assert boxes[0].confidence == pytest.approx(0.92)
+    assert boxes[1].confidence == pytest.approx(0.88)
+    assert boxes[2].confidence == pytest.approx(0.81)
+
+
+def test_detect_all_nms_drops_overlapping_box():
+    """กล่อง 2 อันที่ทับกัน > 45% — ตัวที่ confidence ต่ำต้องโดน NMS ทิ้ง."""
+    output = np.zeros((1, 5, 8400), dtype=np.float32)
+    # Box X: cx=320 cy=200 bw=100 bh=100 → (270,150)-(370,250) area=10000
+    output[0, 0, 0] = 320.0; output[0, 1, 0] = 200.0
+    output[0, 2, 0] = 100.0; output[0, 3, 0] = 100.0
+    output[0, 4, 0] = 0.95
+    # Box Y: cx=330 cy=210 bw=100 bh=100 → (280,160)-(380,260) — overlaps heavily
+    output[0, 0, 1] = 330.0; output[0, 1, 1] = 210.0
+    output[0, 2, 1] = 100.0; output[0, 3, 1] = 100.0
+    output[0, 4, 1] = 0.80
+
+    boxes = BibDetector(_make_session(output)).detect_all(_make_img())
+    assert len(boxes) == 1
+    assert boxes[0].confidence == pytest.approx(0.95)
+
+
+def test_detect_returns_top_box_when_multiple_present():
+    """Backward-compat: legacy .detect() ยังคืน confidence สูงสุด."""
+    output = np.zeros((1, 5, 8400), dtype=np.float32)
+    output[0, 0, 0] = 100.0; output[0, 1, 0] = 200.0
+    output[0, 2, 0] = 60.0;  output[0, 3, 0] = 40.0
+    output[0, 4, 0] = 0.70
+    output[0, 0, 1] = 540.0; output[0, 1, 1] = 200.0
+    output[0, 2, 1] = 60.0;  output[0, 3, 1] = 40.0
+    output[0, 4, 1] = 0.95   # winner
+
+    box = BibDetector(_make_session(output)).detect(_make_img())
+    assert box is not None
+    assert box.confidence == pytest.approx(0.95)

@@ -26,7 +26,7 @@ try:
 except ImportError:
     raise SystemExit("Run: pip install ultralytics")
 
-MODEL_WEIGHTS = "yolov8n.pt"   # replace with fine-tuned .pt if available
+MODEL_WEIGHTS = "models/best.pt"   # Kaggle-trained: mAP50=0.914, mAP50-95=0.675
 OUTPUT_DIR = Path("apps/backend/models")
 
 print(f"Loading {MODEL_WEIGHTS} ...")
@@ -35,8 +35,10 @@ model = YOLO(MODEL_WEIGHTS)
 print("Exporting to ONNX (imgsz=640, simplify=True) ...")
 model.export(format="onnx", imgsz=640, simplify=True, opset=17)
 
-src = Path("yolov8n.onnx")
+# Ultralytics writes best.onnx next to best.pt
+src = Path("models/best.onnx")
 dst = OUTPUT_DIR / "yolov8n_bib.onnx"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 shutil.move(str(src), str(dst))
 print(f"Saved: {dst}")
 print("Done. Verify tensor names before running worker.")
