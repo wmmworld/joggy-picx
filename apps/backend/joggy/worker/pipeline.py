@@ -37,6 +37,7 @@ from joggy.db.models import (
     Event,
     FaceEmbedding,
     Photo,
+    PhotoBib,
     ReviewQueue,
     ReviewQueueStatus,
 )
@@ -116,20 +117,41 @@ async def run_pipeline(
     except ThumbnailError as e:
         logger.warning("Thumbnail generation failed for %s: %s", photo.id, e)
 
-    # 3. Bib detection + OCR
-    bbox = detector.detect(img_bgr)
-    bib_result = ocr.read(img_bgr, bbox) if bbox is not None else None
+    # 3. Bib detection (all bibs) + OCR loop — ADR-0008 Phase A
+    #    detect_all() returns every bib in frame (NMS filtered), sorted by conf desc.
+    #    Each box is passed to OCR independently; only boxes with valid digit reads
+    #    become PhotoBib rows.  The highest-confidence readable bib is also written
+    #    to the deprecated Photo.bib_number_nullable field for backward-compat until
+    #    the API layer migrates to joining photo_bibs (ADR-0008 Phase B).
+    all_boxes = detector.detect_all(img_bgr)
+    bib_results = []
+    for box in all_boxes:
+        result = ocr.read(img_bgr, box)
+        if result is not None:
+            bib_results.append((box, result))
+            db.add(PhotoBib(
+                photo_id=photo_uuid,
+                bib_number=result.number,
+                confidence=result.confidence,
+                bbox_x1=box.x1,
+                bbox_y1=box.y1,
+                bbox_x2=box.x2,
+                bbox_y2=box.y2,
+            ))
+
+    # Best bib = first readable result (detect_all returns highest YOLO conf first)
+    best_bib = bib_results[0][1] if bib_results else None
 
     # 4. Face embedding
     face_result = embedder.embed(img_bgr)
 
     # 5. Determine status
-    bib_ok = bib_result is not None and bib_result.confidence >= _BIB_CONF_THRESHOLD
+    bib_ok = best_bib is not None and best_bib.confidence >= _BIB_CONF_THRESHOLD
     ai_status = AIReviewStatus.auto if bib_ok else AIReviewStatus.manual_pending
 
-    # 5b. UPDATE Photo
-    photo.bib_number_nullable = bib_result.number if bib_result is not None else None
-    photo.bib_confidence = bib_result.confidence if bib_result is not None else None
+    # 5b. UPDATE Photo (deprecated fields — backward-compat until Phase B)
+    photo.bib_number_nullable = best_bib.number if best_bib is not None else None
+    photo.bib_confidence = best_bib.confidence if best_bib is not None else None
     photo.ai_review_status = ai_status
     db.add(photo)
 
@@ -187,8 +209,10 @@ async def run_pipeline(
         target_kind="photo",
         target_id=photo_uuid,
         context={
-            "bib_number": photo.bib_number_nullable,
-            "bib_confidence": photo.bib_confidence,
+            "bibs_detected": len(all_boxes),
+            "bibs_readable": len(bib_results),
+            "best_bib_number": photo.bib_number_nullable,
+            "best_bib_confidence": photo.bib_confidence,
             "ai_status": photo.ai_review_status.value,
             "reid_match": reid_matched_bib,
             "face_embedding_id": face_embedding_id,
@@ -197,6 +221,8 @@ async def run_pipeline(
 
     return {
         "photo_id": photo_id,
+        "bibs_detected": len(all_boxes),
+        "bibs_readable": len(bib_results),
         "bib_number": photo.bib_number_nullable,
         "bib_confidence": photo.bib_confidence,
         "ai_review_status": photo.ai_review_status.value,

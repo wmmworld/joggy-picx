@@ -177,7 +177,9 @@ class Photo(SQLModel, table=True):
     width: Optional[int] = None
     height: Optional[int] = None
     captured_at: Optional[datetime] = None
-    bib_number_nullable: Optional[str] = Field(default=None, index=True)  # ตรงกับ migration column name
+    # DEPRECATED (ADR-0008, 2026-06-05) — ใช้ photo_bibs table แทน
+    # เก็บไว้ backward-compat ระหว่าง Phase A → B migration; Phase C cleanup จะ DROP
+    bib_number_nullable: Optional[str] = Field(default=None, index=True)
     bib_confidence: Optional[float] = None
     gender_nullable: Optional[str] = None  # ตรงกับ migration column name
     gender_confidence: Optional[float] = None
@@ -186,6 +188,30 @@ class Photo(SQLModel, table=True):
         sa_column=_enum_col(AIReviewStatus, default=AIReviewStatus.auto.value),
     )
     retention_until: Optional[datetime] = None  # computed: event.end_at + 30d
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PhotoBib(SQLModel, table=True):
+    """
+    Bib ทุกใบที่ detect ได้ในรูป — 1 photo → N rows (ADR-0008).
+
+    แทน Photo.bib_number_nullable (เดิม 1 bib/รูป) ให้รองรับรูป group photo
+    ที่มีนักวิ่งหลายคนใน frame (avg ~4 bibs/รูป จาก holdout test 2026-06-05).
+
+    Populate โดย worker/pipeline.py ผ่าน BibDetector.detect_all() + BibOcr loop.
+    Public API search: JOIN photo_bibs ON photo_bibs.photo_id = photos.id.
+    """
+
+    __tablename__ = "photo_bibs"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    photo_id: uuid.UUID = Field(foreign_key="photos.id", index=True)
+    bib_number: str = Field(index=True)        # digit string เช่น "4254"
+    confidence: float                           # BibOcr confidence (0–1)
+    bbox_x1: int                                # bounding box ในพิกัดรูปต้นฉบับ
+    bbox_y1: int
+    bbox_x2: int
+    bbox_y2: int
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

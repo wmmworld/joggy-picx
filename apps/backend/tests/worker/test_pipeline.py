@@ -7,7 +7,7 @@ import pytest
 from joggy.ai.bib_detector import BibBox
 from joggy.ai.bib_ocr import BibResult
 from joggy.ai.face_embedder import FaceResult, FaceBox
-from joggy.db.models import AIReviewStatus, Photo, Event, ReviewQueue, ReviewQueueStatus
+from joggy.db.models import AIReviewStatus, Photo, PhotoBib, Event, ReviewQueue, ReviewQueueStatus
 from joggy.worker.pipeline import run_pipeline, _BIB_CONF_THRESHOLD
 
 
@@ -110,7 +110,7 @@ async def test_happy_path_auto_status(mock_db, photo, event):
          patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
 
         bbox = BibBox(0, 0, 50, 30, 0.9)
-        MockDet.return_value.detect.return_value = bbox
+        MockDet.return_value.detect_all.return_value = [bbox]
         MockOcr.return_value.read.return_value = BibResult(number="1234", confidence=0.92)
         MockEmbed.return_value.embed.return_value = _make_face_result()
 
@@ -139,7 +139,7 @@ async def test_low_confidence_triggers_review_queue(mock_db, photo, event):
          patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
 
         bbox = BibBox(0, 0, 50, 30, 0.9)
-        MockDet.return_value.detect.return_value = bbox
+        MockDet.return_value.detect_all.return_value = [bbox]
         MockOcr.return_value.read.return_value = BibResult(number="1234", confidence=0.50)
         MockEmbed.return_value.embed.return_value = None
 
@@ -167,7 +167,7 @@ async def test_no_bib_triggers_review_queue(mock_db, photo, event):
          patch("joggy.worker.pipeline.BibOcr") as MockOcr, \
          patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
 
-        MockDet.return_value.detect.return_value = None
+        MockDet.return_value.detect_all.return_value = []
         MockOcr.return_value.read.return_value = None
         MockEmbed.return_value.embed.return_value = None
 
@@ -194,7 +194,7 @@ async def test_reid_match_resolves_bib(mock_db, photo, event):
          patch("joggy.worker.pipeline.BibOcr") as MockOcr, \
          patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
 
-        MockDet.return_value.detect.return_value = None
+        MockDet.return_value.detect_all.return_value = []
         MockOcr.return_value.read.return_value = None
         MockEmbed.return_value.embed.return_value = _make_face_result()
 
@@ -239,7 +239,7 @@ async def test_existing_review_queue_not_duplicated(mock_db, photo, event):
          patch("joggy.worker.pipeline.BibOcr") as MockOcr, \
          patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
 
-        MockDet.return_value.detect.return_value = None
+        MockDet.return_value.detect_all.return_value = []
         MockOcr.return_value.read.return_value = None
         MockEmbed.return_value.embed.return_value = None
 
@@ -264,7 +264,7 @@ async def test_thumbnail_uploaded_and_key_written(mock_db, photo, event):
          patch("joggy.worker.pipeline.BibOcr") as MockOcr, \
          patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
 
-        MockDet.return_value.detect.return_value = None
+        MockDet.return_value.detect_all.return_value = []
         MockOcr.return_value.read.return_value = None
         MockEmbed.return_value.embed.return_value = None
 
@@ -278,6 +278,86 @@ async def test_thumbnail_uploaded_and_key_written(mock_db, photo, event):
     assert thumb_key.startswith(f"events/{photo.event_id}/")
     assert thumb_key.endswith("/thumbnail.jpg")
     assert photo.r2_key_thumbnail == thumb_key
+
+
+@pytest.mark.asyncio
+async def test_multi_bib_inserts_multiple_photo_bib_rows(mock_db, photo, event):
+    """detect_all() returns 3 boxes → 3 PhotoBib rows inserted (ADR-0008 A3)."""
+    photo_result = _make_execute_result(photo)
+    event_result = _make_execute_result(event)
+    mock_db.execute.side_effect = [photo_result, event_result]
+
+    fake_img = np.zeros((100, 100, 3), dtype=np.uint8)
+    boxes = [
+        BibBox(0, 0, 50, 30, 0.93),
+        BibBox(100, 0, 150, 30, 0.88),
+        BibBox(200, 0, 250, 30, 0.81),
+    ]
+
+    with patch("joggy.worker.pipeline.r2.download_bytes", return_value=b"jpg"), \
+         patch("joggy.worker.pipeline.cv2.imdecode", return_value=fake_img), \
+         patch("joggy.worker.pipeline.generate_thumbnail", return_value=b"thumb"), \
+         patch("joggy.worker.pipeline.r2.upload_bytes"), \
+         patch("joggy.worker.pipeline.BibDetector") as MockDet, \
+         patch("joggy.worker.pipeline.BibOcr") as MockOcr, \
+         patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
+
+        MockDet.return_value.detect_all.return_value = boxes
+        MockOcr.return_value.read.side_effect = [
+            BibResult(number="1001", confidence=0.95),
+            BibResult(number="1002", confidence=0.90),
+            BibResult(number="1003", confidence=0.85),
+        ]
+        MockEmbed.return_value.embed.return_value = None
+
+        result = await run_pipeline(str(photo.id), mock_db, _make_sessions())
+
+    # 3 PhotoBib rows should have been added
+    added_types = [type(c.args[0]).__name__ for c in mock_db.add.call_args_list]
+    assert added_types.count("PhotoBib") == 3
+
+    # Best bib = first (highest YOLO conf)
+    assert result["bib_number"] == "1001"
+    assert result["bibs_detected"] == 3
+    assert result["bibs_readable"] == 3
+    assert result["ai_review_status"] == AIReviewStatus.auto.value
+
+
+@pytest.mark.asyncio
+async def test_multi_bib_partial_ocr_failure(mock_db, photo, event):
+    """2 boxes but OCR fails on 2nd → only 1 PhotoBib row, still auto status."""
+    photo_result = _make_execute_result(photo)
+    event_result = _make_execute_result(event)
+    mock_db.execute.side_effect = [photo_result, event_result]
+
+    fake_img = np.zeros((100, 100, 3), dtype=np.uint8)
+    boxes = [BibBox(0, 0, 50, 30, 0.93), BibBox(100, 0, 150, 30, 0.88)]
+
+    with patch("joggy.worker.pipeline.r2.download_bytes", return_value=b"jpg"), \
+         patch("joggy.worker.pipeline.cv2.imdecode", return_value=fake_img), \
+         patch("joggy.worker.pipeline.generate_thumbnail", return_value=b"thumb"), \
+         patch("joggy.worker.pipeline.r2.upload_bytes"), \
+         patch("joggy.worker.pipeline.BibDetector") as MockDet, \
+         patch("joggy.worker.pipeline.BibOcr") as MockOcr, \
+         patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
+
+        MockDet.return_value.detect_all.return_value = boxes
+        # First box OCR succeeds, second fails
+        MockOcr.return_value.read.side_effect = [
+            BibResult(number="4254", confidence=0.91),
+            None,
+        ]
+        MockEmbed.return_value.embed.return_value = None
+
+        result = await run_pipeline(str(photo.id), mock_db, _make_sessions())
+
+    added_types = [type(c.args[0]).__name__ for c in mock_db.add.call_args_list]
+    assert added_types.count("PhotoBib") == 1
+
+    assert result["bib_number"] == "4254"
+    assert result["bibs_detected"] == 2
+    assert result["bibs_readable"] == 1
+    assert result["ai_review_status"] == AIReviewStatus.auto.value
 
 
 @pytest.mark.asyncio
@@ -298,7 +378,7 @@ async def test_thumbnail_failure_does_not_break_pipeline(mock_db, photo, event):
          patch("joggy.worker.pipeline.BibOcr") as MockOcr, \
          patch("joggy.worker.pipeline.FaceEmbedder") as MockEmbed:
 
-        MockDet.return_value.detect.return_value = None
+        MockDet.return_value.detect_all.return_value = []
         MockOcr.return_value.read.return_value = None
         MockEmbed.return_value.embed.return_value = None
 
