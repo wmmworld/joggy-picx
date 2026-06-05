@@ -83,6 +83,58 @@ def api_client(mock_db, partner_claims):
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
+async def test_lookup_uses_photo_bibs_join(mock_db, partner_claims):
+    """ADR-0008 Phase B: query must JOIN photo_bibs (not WHERE bib_number_nullable).
+
+    This test inspects the SQL the endpoint executes so we don't silently regress
+    back to the deprecated column. Captures the SQL text on the photos query.
+    """
+    event_id = uuid.uuid4()
+    photo = _make_photo(event_id, bib=None)   # deprecated column stays NULL now
+    photo.bib_number_nullable = None
+    event = _make_event(event_id, partner_claims.organizer_id)
+
+    captured_sql: list[str] = []
+
+    async def _execute(stmt, *args, **kwargs):
+        # First call = event lookup, second = photos query
+        captured_sql.append(str(stmt.compile(compile_kwargs={"literal_binds": False})))
+        m = MagicMock()
+        if len(captured_sql) == 1:
+            m.scalar_one_or_none.return_value = event
+        else:
+            m.all.return_value = [(photo, None)]
+        return m
+
+    mock_db.execute = _execute
+
+    async def _get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[verify_partner_api_key] = lambda: partner_claims
+
+    try:
+        with patch("joggy.api.public.signed_url", return_value="https://r2.example/signed"):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.get(
+                    f"/v1/public/photos?event_id={event_id}&bib=1234"
+                )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    # Second SQL = photos query — must filter via photo_bibs.bib_number, NOT via
+    # photos.bib_number_nullable. (The deprecated column may still appear in the
+    # SELECT list because select(Photo) loads every column; we only care that
+    # the WHERE / JOIN filters use the new table.)
+    photos_sql = captured_sql[1].lower()
+    assert "join photo_bibs" in photos_sql
+    assert "photo_bibs.bib_number = " in photos_sql
+    assert "photos.bib_number_nullable = " not in photos_sql
+
+
+@pytest.mark.asyncio
 async def test_happy_path_returns_photos_with_urls(api_client, mock_db, partner_claims):
     """Valid request with matching photos returns correct response shape."""
     event_id = uuid.uuid4()

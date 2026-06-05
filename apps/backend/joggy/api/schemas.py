@@ -102,11 +102,26 @@ class ReviewAction(BaseModel):
 
 # Phase 4C: Photo Gallery API schemas
 
+
+class BibOut(BaseModel):
+    """1 bib ในรูป — populated จาก PhotoBib table (ADR-0008)."""
+    bib_number: str
+    confidence: float            # 0.0–1.0 (จาก BibOcr)
+    bbox_x1: int
+    bbox_y1: int
+    bbox_x2: int
+    bbox_y2: int
+
+
 class PhotoItemOut(BaseModel):
     """Single photo item in the gallery response."""
     photo_id: uuid.UUID
-    bib_number: str | None        # Photo.bib_number_nullable
+    # DEPRECATED (ADR-0008): bib_number/bib_confidence sourced from
+    # photos.bib_number_nullable until Phase C cleanup. New consumers should
+    # iterate `bibs` instead — supports rows with multiple runners visible.
+    bib_number: str | None        # Photo.bib_number_nullable (best bib)
     bib_confidence: float | None  # 0.0–1.0 or None when no bib detected
+    bibs: list[BibOut] = []       # ALL bibs detected (ADR-0008 Phase B)
     ai_review_status: Literal["auto", "manual_pending", "manual_approved", "manual_rejected"]
     thumbnail_url: str | None     # R2 signed URL (expires 1h); None if no key available
     checkpoint_name: str | None

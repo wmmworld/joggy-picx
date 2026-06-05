@@ -88,8 +88,12 @@ def _make_checkpoint(event_id: uuid.UUID, name: str = "กม.5") -> Checkpoint:
     )
 
 
-def _setup_db(mock_db, event, total: int, rows: list):
-    """Stage mock_db.execute: event lookup → count → paginated rows."""
+def _setup_db(mock_db, event, total: int, rows: list, photo_bibs: list | None = None):
+    """Stage mock_db.execute: event lookup → count → paginated rows → photo_bibs.
+
+    Photo_bibs query is only executed when `rows` has at least one photo, but
+    we always stage a result so passing more side_effects than consumed is fine.
+    """
     event_result = MagicMock()
     event_result.scalar_one_or_none.return_value = event
 
@@ -99,7 +103,12 @@ def _setup_db(mock_db, event, total: int, rows: list):
     rows_result = MagicMock()
     rows_result.all.return_value = rows
 
-    mock_db.execute.side_effect = [event_result, count_result, rows_result]
+    # ADR-0008 Phase B: list_event_photos batch-loads PhotoBib after fetching
+    # the page. .scalars().all() returns the bib rows (default: empty list).
+    bibs_result = MagicMock()
+    bibs_result.scalars.return_value.all.return_value = photo_bibs or []
+
+    mock_db.execute.side_effect = [event_result, count_result, rows_result, bibs_result]
 
 
 # ── Tests ────────────────────────────────────────────────────────────────────
@@ -244,3 +253,89 @@ async def test_list_event_photos_bib_filter_escapes_wildcards(api_client, mock_d
     assert response.status_code == 200
     # Just verify no crash + valid response shape
     assert response.json()["total"] == 0
+
+
+# ── ADR-0008 Phase B: PhotoBib payload + EXISTS bib filter ────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_event_photos_includes_bibs_payload(api_client, mock_db):
+    """Photo with 2 PhotoBib rows should expose both via the `bibs` field."""
+    from joggy.db.models import PhotoBib
+
+    event_id = uuid.uuid4()
+    photo_id = uuid.uuid4()
+    event = _make_event(event_id)
+    photo = _make_photo(photo_id, event_id)
+    bibs = [
+        PhotoBib(
+            id=uuid.uuid4(), photo_id=photo_id,
+            bib_number="1234", confidence=0.95,
+            bbox_x1=10, bbox_y1=20, bbox_x2=110, bbox_y2=80,
+        ),
+        PhotoBib(
+            id=uuid.uuid4(), photo_id=photo_id,
+            bib_number="5678", confidence=0.81,
+            bbox_x1=200, bbox_y1=20, bbox_x2=300, bbox_y2=80,
+        ),
+    ]
+    _setup_db(mock_db, event, total=1, rows=[(photo, None)], photo_bibs=bibs)
+
+    with patch("joggy.api.internal.r2.signed_url", return_value="https://r2.test/signed"):
+        async with api_client as client:
+            response = await client.get(f"/internal/events/{event_id}/photos")
+
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert len(item["bibs"]) == 2
+    bib_numbers = {b["bib_number"] for b in item["bibs"]}
+    assert bib_numbers == {"1234", "5678"}
+    # bbox fields round-trip
+    high_conf = next(b for b in item["bibs"] if b["bib_number"] == "1234")
+    assert high_conf["confidence"] == 0.95
+    assert high_conf["bbox_x1"] == 10
+    assert high_conf["bbox_x2"] == 110
+
+
+@pytest.mark.asyncio
+async def test_list_event_photos_bib_filter_uses_photo_bibs_exists(api_client, mock_db):
+    """ADR-0008 Phase B: bib= filter must use EXISTS on photo_bibs, not the
+    deprecated Photo.bib_number_nullable column.
+
+    Inspects the compiled SQL of the photos query (3rd execute call: event,
+    count, then rows).
+    """
+    from unittest.mock import AsyncMock
+
+    event_id = uuid.uuid4()
+    event = _make_event(event_id)
+    captured_sql: list[str] = []
+
+    async def _execute(stmt, *args, **kwargs):
+        captured_sql.append(str(stmt.compile(compile_kwargs={"literal_binds": False})))
+        m = MagicMock()
+        n = len(captured_sql)
+        if n == 1:                        # event lookup
+            m.scalar_one_or_none.return_value = event
+        elif n == 2:                      # count(*)
+            m.scalar_one.return_value = 0
+        elif n == 3:                      # paginated rows
+            m.all.return_value = []
+        else:                             # PhotoBib batch-load (not reached when 0 rows)
+            m.scalars.return_value.all.return_value = []
+        return m
+
+    mock_db.execute = _execute
+
+    with patch("joggy.api.internal.r2.signed_url"):
+        async with api_client as client:
+            response = await client.get(f"/internal/events/{event_id}/photos?bib=1234")
+
+    assert response.status_code == 200
+    # Count query (index 1) carries the same WHERE clause as the row query.
+    # Both should reference photo_bibs.bib_number via EXISTS, NOT the
+    # deprecated photos.bib_number_nullable ilike.
+    count_sql = captured_sql[1].lower()
+    assert "photo_bibs.bib_number" in count_sql
+    assert "exists" in count_sql
+    assert "photos.bib_number_nullable ilike" not in count_sql

@@ -17,6 +17,7 @@ from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from joggy.api.schemas import (
+    BibOut,
     EventCreate,
     EventOut,
     EventUpdate,
@@ -32,6 +33,7 @@ from joggy.db.models import (
     Checkpoint, Event, EventStatus, Organizer, PartnerApiKey,
     ReviewQueue, ReviewQueueStatus,
     Photo,
+    PhotoBib,
     AIReviewStatus,
     ActorKind, AuditLog,
     EventToken,
@@ -537,8 +539,19 @@ async def list_event_photos(
     # Build WHERE conditions
     conditions: list = [Photo.event_id == event_id]
     if bib:
+        # ADR-0008 Phase B: bib search via EXISTS on photo_bibs (was ilike on
+        # the deprecated Photo.bib_number_nullable). EXISTS is the standard
+        # pattern for "photo has at least one matching bib" — avoids row
+        # duplication that JOIN would cause when a photo has multiple bibs.
         escaped_bib = bib.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        conditions.append(Photo.bib_number_nullable.ilike(f"%{escaped_bib}%", escape="\\"))
+        conditions.append(
+            select(PhotoBib.id)
+            .where(
+                PhotoBib.photo_id == Photo.id,
+                PhotoBib.bib_number.ilike(f"%{escaped_bib}%", escape="\\"),
+            )
+            .exists()
+        )
     if checkpoint_id:
         conditions.append(Photo.checkpoint_id == checkpoint_id)
     if ai_status_enum is not None:
@@ -559,6 +572,20 @@ async def list_event_photos(
     )
     rows = (await db.execute(stmt)).all()
 
+    # ADR-0008 Phase B: batch-load PhotoBib rows for every photo in the page so
+    # the response carries the full bib list (not just the deprecated best-bib
+    # column). Single query keeps it O(1) per page instead of N+1.
+    photo_ids = [photo.id for photo, _ in rows]
+    bibs_by_photo: dict[uuid.UUID, list[PhotoBib]] = {pid: [] for pid in photo_ids}
+    if photo_ids:
+        bib_rows = (await db.execute(
+            select(PhotoBib)
+            .where(PhotoBib.photo_id.in_(photo_ids))
+            .order_by(PhotoBib.confidence.desc())
+        )).scalars().all()
+        for b in bib_rows:
+            bibs_by_photo[b.photo_id].append(b)
+
     # Build response items
     items = []
     for photo, checkpoint in rows:
@@ -569,6 +596,17 @@ async def list_event_photos(
                 photo_id=photo.id,
                 bib_number=photo.bib_number_nullable,
                 bib_confidence=photo.bib_confidence,
+                bibs=[
+                    BibOut(
+                        bib_number=b.bib_number,
+                        confidence=b.confidence,
+                        bbox_x1=b.bbox_x1,
+                        bbox_y1=b.bbox_y1,
+                        bbox_x2=b.bbox_x2,
+                        bbox_y2=b.bbox_y2,
+                    )
+                    for b in bibs_by_photo[photo.id]
+                ],
                 ai_review_status=(
                     photo.ai_review_status.value
                     if hasattr(photo.ai_review_status, "value")

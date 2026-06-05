@@ -21,6 +21,7 @@ from joggy.db.models import (
     ErasureStatus,
     Event,
     Photo,
+    PhotoBib,
 )
 from joggy.db.session import get_db
 from joggy.middleware.partner_key import PartnerKeyClaims, verify_partner_api_key
@@ -73,12 +74,19 @@ async def get_photos_by_bib(
     if event.organizer_id != claims.organizer_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Event does not belong to your organization")
 
+    # ADR-0008 Phase B: JOIN photo_bibs instead of WHERE Photo.bib_number_nullable.
+    # A photo can now have multiple bibs (different runners in frame); we want this
+    # photo if ANY of its PhotoBib rows matches. DISTINCT ON guarantees one row per
+    # photo even if the same bib were ever duplicated (defensive — shouldn't happen
+    # given OCR uniqueness per box, but cheap to ensure).
     stmt = (
         select(Photo, Checkpoint)
+        .distinct()
+        .join(PhotoBib, PhotoBib.photo_id == Photo.id)
         .outerjoin(Checkpoint, Photo.checkpoint_id == Checkpoint.id)
         .where(
             Photo.event_id == event_uuid,
-            Photo.bib_number_nullable == bib,
+            PhotoBib.bib_number == bib,
             Photo.ai_review_status.in_([AIReviewStatus.auto, AIReviewStatus.manual_approved]),
         )
     )
