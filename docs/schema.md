@@ -5,7 +5,7 @@
 > ไฟล์นี้ใช้สำหรับ **overview + review** — AI ทุกตัวอ่านก่อน implement
 > อัปเดตทุกครั้งที่ schema change (บังคับใน Phase exit checklist)
 
-วันที่อัปเดตล่าสุด: 2026-05-28 (Phase 1 Day 2 — initial draft)
+วันที่อัปเดตล่าสุด: 2026-06-05 (ADR-0008 — เพิ่ม photo_bibs table, deprecate bib columns ใน photos)
 
 ---
 
@@ -25,6 +25,7 @@ erDiagram
 
     checkpoints ||--o{ photos : "tagged at"
 
+    photos ||--o{ photo_bibs : "1..N bibs detected"
     photos ||--o{ face_embeddings : "1..N faces detected"
     photos ||--o| review_queue : "if low confidence"
     photos ||--o{ audit_logs : "actions logged"
@@ -84,12 +85,24 @@ erDiagram
         INT width
         INT height
         TIMESTAMP captured_at
-        TEXT bib_number_nullable
-        NUMERIC bib_confidence
+        TEXT bib_number_nullable "DEPRECATED — use photo_bibs"
+        NUMERIC bib_confidence "DEPRECATED — use photo_bibs"
         TEXT gender_nullable
         NUMERIC gender_confidence
         TEXT ai_review_status "auto|manual_pending|manual_approved|manual_rejected"
         TIMESTAMP retention_until "computed"
+        TIMESTAMP created_at
+    }
+
+    photo_bibs {
+        UUID id PK
+        UUID photo_id FK
+        TEXT bib_number
+        NUMERIC confidence
+        INT bbox_x1
+        INT bbox_y1
+        INT bbox_x2
+        INT bbox_y2
         TIMESTAMP created_at
     }
 
@@ -228,9 +241,17 @@ erDiagram
 #### `photos` — รูปต้นฉบับ (1 row = 1 รูป)
 - ผูกกับ event + checkpoint + event_token + device_id
 - `r2_key_*`: path ใน R2 bucket (เช่น `events/<event_id>/<photo_id>/original.jpg`)
-- `bib_number_nullable` + `bib_confidence`: ผล OCR
+- `bib_number_nullable` + `bib_confidence`: **DEPRECATED** — ดู `photo_bibs` table แทน (ADR-0008)
 - `ai_review_status` flow: AI ตัดสินใจ → ถ้า low confidence → `manual_pending` → human approve/reject
 - `retention_until` = `event.end_at + 30d` (extend +30d ได้)
+
+#### `photo_bibs` — Bib ทุกใบในรูป 1-to-many (ADR-0008)
+- 1 photo → N photo_bibs (เฉลี่ย 3.9 bibs/รูป จาก holdout test 2026-06-05)
+- แทน `photos.bib_number_nullable` (เดิมเก็บได้แค่ 1 bib/รูป → พลาดนักวิ่งที่อยู่ background)
+- `bib_number` + index → `GET /v1/public/photos?bib=X` JOIN ตารางนี้
+- `bbox_*` เก็บพิกัด bounding box → Review queue UI แสดง crop บิบได้
+- `confidence` จาก BibDetector + BibOcr pipeline (ไม่ใช่ YOLOv8 confidence อย่างเดียว)
+- Populate โดย `worker/pipeline.py` ผ่าน `detector.detect_all()` + OCR loop (commit e1ac2c5)
 
 #### `face_embeddings` — Face vector (D-014, ลบเร็วกว่ารูป)
 - 1 photo มีได้หลาย face (1..N)
@@ -327,6 +348,7 @@ CREATE INDEX face_embeddings_retention_until_idx ON face_embeddings(retention_un
 ### 3.5 Foreign Key Cascade
 - `events.organizer_id` → `ON DELETE RESTRICT` (ห้ามลบ organizer ที่มี event)
 - `photos.event_id` → `ON DELETE CASCADE` (ลบ event = ลบรูป)
+- `photo_bibs.photo_id` → `ON DELETE CASCADE` (ลบรูป = ลบ bib rows ทั้งหมด)
 - `face_embeddings.photo_id` → `ON DELETE CASCADE`
 - `review_queue.photo_id` → `ON DELETE CASCADE`
 
