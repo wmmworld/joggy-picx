@@ -19,7 +19,7 @@ export default function EventPhotosPage() {
 
   // Cursor: Local state for debounced bib input + lightbox
   const [bibInput, setBibInput] = useState(bib);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<PhotoItem | null>(null);
 
   // Cursor: Fetch event detail (for name + checkpoints) + photos
   const { data: event } = useEventDetail(eventId);
@@ -211,7 +211,7 @@ export default function EventPhotosPage() {
               <PhotoCard
                 key={photo.photo_id}
                 photo={photo}
-                onImageClick={(url) => setLightboxUrl(url)}
+                onImageClick={(p) => setLightboxPhoto(p)}
               />
             ))}
           </div>
@@ -229,31 +229,21 @@ export default function EventPhotosPage() {
         </>
       )}
 
-      {/* Cursor: Lightbox modal */}
-      {lightboxUrl && (
-        <div
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 touch-none"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <img
-            src={lightboxUrl}
-            alt="Full size"
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+      {/* Cursor: Lightbox with bbox overlay — ADR-0008 Phase B4 */}
+      {lightboxPhoto && (
+        <Lightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
       )}
     </div>
   );
 }
 
-// Cursor: Photo card component
+// Cursor: Photo card component — ADR-0008 Phase B4 multi-bib
 function PhotoCard({
   photo,
   onImageClick,
 }: {
   photo: PhotoItem;
-  onImageClick: (url: string) => void;
+  onImageClick: (photo: PhotoItem) => void;
 }) {
   return (
     <div className="bg-white rounded-lg overflow-hidden shadow hover:shadow-md transition-shadow cursor-pointer">
@@ -264,7 +254,7 @@ function PhotoCard({
             src={photo.thumbnail_url}
             alt="photo"
             className="w-full h-full object-cover"
-            onClick={() => onImageClick(photo.thumbnail_url!)}
+            onClick={() => onImageClick(photo)}
             onError={(e) => {
               e.currentTarget.style.display = "none";
               e.currentTarget.parentElement!.innerHTML = `
@@ -281,9 +271,27 @@ function PhotoCard({
 
       {/* Cursor: Info */}
       <div className="p-2 space-y-1">
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-sm">{photo.bib_number || "ไม่พบ"}</span>
-          <ConfidenceBadge confidence={photo.bib_confidence} />
+        {/* Cursor: Multi-bib pills — ADR-0008 Phase B4 */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          {photo.bibs.length === 0 ? (
+            <span className="font-medium text-sm text-slate-400">ไม่พบ</span>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              {photo.bibs.slice(0, 4).map((b) => (
+                <span
+                  key={b.bib_number + b.bbox_x1}
+                  className="px-1.5 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-700"
+                  title={`confidence ${(b.confidence * 100).toFixed(0)}%`}
+                >
+                  {b.bib_number}
+                </span>
+              ))}
+              {photo.bibs.length > 4 && (
+                <span className="text-xs text-slate-500">+{photo.bibs.length - 4}</span>
+              )}
+            </div>
+          )}
+          {photo.bibs.length > 0 && <ConfidenceBadge confidence={photo.bib_confidence} />}
         </div>
         <AIStatusBadge status={photo.ai_review_status} />
         {photo.checkpoint_name && (
@@ -334,6 +342,68 @@ function AIStatusBadge({
     <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${className}`}>
       {label}
     </span>
+  );
+}
+
+// Cursor: Lightbox with green bbox overlay — ADR-0008 Phase B4
+// Bboxes are in original image pixel space; converting to percentage of
+// naturalWidth/naturalHeight gives the correct position on the displayed
+// image regardless of viewport size (uniform scale-down is preserved).
+function Lightbox({ photo, onClose }: { photo: PhotoItem; onClose: () => void }) {
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
+
+  if (!photo.thumbnail_url) return null;
+  return (
+    <div
+      role="dialog"
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 touch-none"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-[95vw] max-h-[95vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={photo.thumbnail_url}
+          alt="photo"
+          className="max-w-[95vw] max-h-[95vh] object-contain block"
+          onLoad={(e) => {
+            const el = e.currentTarget;
+            setImgSize({ w: el.naturalWidth, h: el.naturalHeight });
+          }}
+        />
+        {imgSize &&
+          photo.bibs.map((b) => {
+            const left = (b.bbox_x1 / imgSize.w) * 100;
+            const top = (b.bbox_y1 / imgSize.h) * 100;
+            const width = ((b.bbox_x2 - b.bbox_x1) / imgSize.w) * 100;
+            const height = ((b.bbox_y2 - b.bbox_y1) / imgSize.h) * 100;
+            return (
+              <div
+                key={b.bib_number + b.bbox_x1}
+                className="absolute border-2 border-green-400 pointer-events-none"
+                style={{
+                  left: `${left}%`,
+                  top: `${top}%`,
+                  width: `${width}%`,
+                  height: `${height}%`,
+                }}
+              >
+                <span className="absolute -top-5 left-0 px-1 text-xs font-medium bg-green-400 text-black rounded-sm">
+                  {b.bib_number}
+                </span>
+              </div>
+            );
+          })}
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 bg-white/90 rounded-full w-8 h-8 flex items-center justify-center hover:bg-white"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
   );
 }
 

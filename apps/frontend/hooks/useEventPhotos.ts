@@ -2,11 +2,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../lib/api";
 
-// Cursor: Photo Gallery types — Phase 4C
+// Cursor: BibOut — ADR-0008 Phase B4 (multi-bib pipeline)
+export type BibOut = {
+  bib_number: string;
+  confidence: number;  // 0.0–1.0 (from OCR, not YOLO)
+  bbox_x1: number;     // bounding box in ORIGINAL image pixel space
+  bbox_y1: number;
+  bbox_x2: number;
+  bbox_y2: number;
+};
+
+// Cursor: Photo Gallery types — Phase 4C; bibs field added ADR-0008 Phase B4
 export type PhotoItem = {
   photo_id: string;
-  bib_number: string | null;
-  bib_confidence: number | null;
+  bib_number: string | null;      // DEPRECATED — best bib only; use `bibs` instead
+  bib_confidence: number | null;  // DEPRECATED
+  bibs: BibOut[];                 // NEW — sorted by confidence desc, may be empty
   ai_review_status: "auto" | "manual_pending" | "manual_approved" | "manual_rejected";
   thumbnail_url: string | null;
   checkpoint_name: string | null;
