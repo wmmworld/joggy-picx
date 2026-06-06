@@ -4,8 +4,8 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-06-05
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Bib detector v1 trained บน Kaggle (mAP50 0.914) + holdout 20/20 (100%) + ONNX deployed ที่ apps/backend/models/yolov8n_bib.onnx
+วันที่อัปเดตล่าสุด: 2026-06-06
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — ADR-0008 Phase A+B ✅ ครบทุก step: PhotoBib schema + migration + worker + backend API + frontend gallery + bbox lightbox. GitHub Issue ปิดแล้ว. Remaining: C1–C2 post-production cleanup (deferred)
 
 ---
 
@@ -109,6 +109,7 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 - [x] **Thumbnail generation** ✅ — Pillow 400×400 q75 in pipeline.py (best-effort, ~100× smaller than originals), 7 new tests, 55/55 total
 - [x] **Public API rate limit + security headers** ✅ — Redis counter per partner key (uses existing rate_limit_per_minute), HSTS + X-Frame-Options + X-Content-Type-Options + Referrer-Policy + Permissions-Policy. Fail-open on Redis errors. 5 new tests, 60/60 total.
 - [x] **race-result.asia Pull API integration test** ✅ — 5 tests: happy path, no match (empty list), 401 no key, 403 wrong scope, security headers. Load test 1,000 รูป deferred รอ AI pipeline + ONNX models.
+- [x] **ADR-0008 Multi-bib pipeline Phase A+B** ✅ 2026-06-06 — PhotoBib schema + migration `0002_add_photo_bibs` + worker loop OCR all boxes + backend API JOIN + frontend multi-bib gallery + bbox lightbox. GitHub Issue ปิด. Phase C (DROP deprecated columns) deferred post-production.
 - [ ] Performance tuning + remaining security audit (Codex)
 - **Milestone:** race-result.asia ดึงรูปด้วยเลขบิบผ่าน Public API ได้จริง + Internal dashboard ใช้งานครบ
 
@@ -163,6 +164,13 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-06 (ADR-0008 Phase A+B ✅ — Multi-bib pipeline สมบูรณ์)
+- [Claude] **ADR-0008 Phase A — PhotoBib schema + migration + worker** ✅ — สร้าง `PhotoBib` SQLModel (id, photo_id FK, bib_number, confidence, bbox_x/y/w/h, created_at), Alembic migration `0002_add_photo_bibs` (table + indexes + deferred nullability ของ Photo.bib_number/bib_confidence — deprecated แต่ยังไม่ DROP รอ C1), แก้ `worker/pipeline.py` วน loop `detect_all()` → OCR ทุก bbox → bulk INSERT PhotoBib rows แทน single bib_number. Backend tests 103/103 pass (commit: 5a27c7e)
+- [Claude] **ADR-0008 Phase B — Backend API + Frontend gallery** ✅ — Backend: `GET /internal/events/{id}/photos` แก้ JOIN PhotoBib, `PhotoItemOut.bibs: list[BibOut]`, filter `?bib=` ทำ EXISTS subquery, `?has_bib=true/false` กรองรูปที่ยังไม่มี bib. Frontend (`useEventPhotos.ts`): extend `PhotoItem` ด้วย `bibs: BibOut[]`; deprecate legacy `bib_number/bib_confidence`. Gallery page: multi-bib pills (max 4 + overflow "+N"), "ไม่พบ" badge เมื่อ empty, lightbox overlay green bounding boxes per PhotoBib positioned by percentage ของ naturalWidth/naturalHeight. TypeScript 0 errors (commits: 4dd179f + a1295af)
+- [Claude + CEO] **ADR-0008 doc + schema.md update** ✅ — `docs/adr/ADR-0008-multi-bib-pipeline.md` design spec, `docs/schema.md` เพิ่ม PhotoBib ใน Mermaid ER (commits: ca40d7e + fd83c4d)
+- [Claude] **ADR-0008 verified E2E** ✅ — Migration applied, backend 200 OK, gallery แสดง 39 รูป with "ไม่พบ" pills (ถูก — ยังไม่มี photo_bibs rows), lightbox เปิด/ปิด OK. GitHub Issue ปิดแล้ว ✅
+- [Claude] **Bib detector session loader + detect_all** ✅ — `load_sessions()` fail-fast (commits: e1ac2c5, dc8423c)
 
 ### 2026-06-05 (Phase 6 — Bib Detector Trained + Holdout 100% ✅)
 - [Claude + CEO] **Bib detector v1 trained** ✅ — Roboflow workspace `wmm-qv1ad/joggy-bib` ครบ: 4 public datasets + Thai start_finish/on_the_way → annotate (SAM3 auto-label + manual review) → merged 6 messy classes → 1 class `bib` → version v1: **9,397 images** (train 9,276 / val 76 / test 45, 640×640, 3× aug). Train YOLOv8n บน Kaggle (T4 ×2) 100 epochs: **mAP50 = 0.914**, mAP50-95 = 0.675, precision ~0.91, recall ~0.85. Pipeline ติดปัญหา 3 จุด: (1) Colab Free quota หมด → switch ไป Kaggle, (2) Kaggle ตอน first session ปิด Internet ต้อง Settings→Turn on internet, (3) browser disconnect ครั้งเดียวต้องเริ่ม train ใหม่ — ครั้งสองสำเร็จ
