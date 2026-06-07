@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-06
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — ADR-0008 Phase A+B ✅ ครบทุก step: PhotoBib schema + migration + worker + backend API + frontend gallery + bbox lightbox. GitHub Issue ปิดแล้ว. Remaining: C1–C2 post-production cleanup (deferred)
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — PDPA Auto-Delete Cron ✅ (ADR-0004): 3 retention tasks + systemd timer + 10 TDD tests + backfill migration 0003. Backend 113/113 pass. พร้อม deploy ขึ้น Hetzner
 
 ---
 
@@ -119,6 +119,7 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 - [ ] Final perf tuning (Codex)
 - [x] Mobile-responsive UI + final polish (Claude) ✅
 - [ ] Stress test + parallel load test (Antigravity)
+- [x] **PDPA Auto-Delete Cron** ✅ 2026-06-06 (ADR-0004) — `joggy/worker/retention.py` (3 async tasks: delete_expired_photos / delete_expired_face_embeddings / anonymize_expired_metadata), 10 TDD tests, systemd timer + service unit (`infra/systemd/`), backfill migration 0003 + indexes on retention_until, ingest.py แก้ bug ที่ไม่ set Photo.retention_until. Per-photo audit log. Backend 113/113 pass.
 - **Milestone:** พร้อมทดสอบจริงในสนาม
 
 ---
@@ -164,6 +165,15 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-06 (PDPA Auto-Delete Cron ✅ — ADR-0004 implementation)
+- [Claude] **`joggy/worker/retention.py`** ✅ — 3 async cron tasks ตาม ADR-0004 rule #1: (1) `_delete_expired_photos_async()` — SELECT Photo WHERE retention_until < now → R2 delete (original + thumbnail) → DB cascade (FaceEmbedding/ReviewQueue/PhotoBib/Photo) + per-photo audit; (2) `_delete_expired_face_embeddings_async()` — SELECT FaceEmbedding WHERE retention_until < now → DELETE + audit (biometric data, no R2); (3) `_anonymize_expired_metadata_async()` — SELECT ConsentRecord WHERE consent_at < now-30d AND external_id IS NOT NULL → set external_id = NULL + audit. Sync wrappers + `run_all_retention_jobs()` CLI entrypoint with `__main__` for systemd.
+- [Claude] **Failure semantics** ✅ — R2 delete fail → ห้ามลบ DB row (กัน orphan); audit log `retention_delete_failed` พร้อม error + r2_key; cron next run จะ retry photo เดิม. Exit code 1 ถ้า task ใดผิดพลาด → systemd timer alerts.
+- [Claude] **`apps/backend/tests/worker/test_retention.py`** ✅ — 10 TDD tests (RED→GREEN): happy path, empty result, no thumbnail, R2 failure skips DB delete, per-photo audit granularity, face embedding delete, face empty, anonymize external_id, anonymize idempotent, sync entrypoints callable. Mock pattern เหมือน test_erasure.py.
+- [Claude] **`infra/systemd/joggy-retention.{service,timer}` + README** ✅ — systemd timer ที่ `00:00 Asia/Bangkok` ทุกวัน + RandomizedDelaySec=300 + Persistent=true; service oneshot รัน `python -m joggy.worker.retention`; logs → journalctl. Doc ระบุ install steps + manual test + monitoring queries (audit_logs WHERE action LIKE 'retention_%').
+- [Claude] **`alembic/versions/0003_backfill_retention_until.py`** ✅ — backfill existing rows (events/photos/face_embeddings) ที่ retention_until = NULL ก่อน cron เริ่มทำงาน + index `ix_photos_retention_until` + `ix_face_embeddings_retention_until` (cron queries ใช้บ่อย). Forward-only — downgrade ลบแค่ index ไม่ reset values.
+- [Claude] **Bug fix `api/ingest.py`** 🐛 ✅ — Photo insert ไม่ได้ set `retention_until` → cron จะหารูปไม่เจอตลอดกาล (PDPA fail). แก้: SELECT Event.end_at ก่อน insert → set Photo.retention_until = end_at + 30d. Inline comment อธิบาย why.
+- Backend tests: **113/113 pass** (was 103). Migration applied OK.
 
 ### 2026-06-06 (ADR-0008 Phase A+B ✅ — Multi-bib pipeline สมบูรณ์)
 - [Claude] **ADR-0008 Phase A — PhotoBib schema + migration + worker** ✅ — สร้าง `PhotoBib` SQLModel (id, photo_id FK, bib_number, confidence, bbox_x/y/w/h, created_at), Alembic migration `0002_add_photo_bibs` (table + indexes + deferred nullability ของ Photo.bib_number/bib_confidence — deprecated แต่ยังไม่ DROP รอ C1), แก้ `worker/pipeline.py` วน loop `detect_all()` → OCR ทุก bbox → bulk INSERT PhotoBib rows แทน single bib_number. Backend tests 103/103 pass (commit: 5a27c7e)

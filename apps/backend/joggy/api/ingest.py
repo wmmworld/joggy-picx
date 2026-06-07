@@ -8,14 +8,14 @@ import asyncio
 import hashlib
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from joggy.db.models import ActorKind, AuditLog, Photo
+from joggy.db.models import ActorKind, AuditLog, Event, Photo
 from joggy.db.session import get_db
 from joggy.middleware.event_token import EventTokenClaims, verify_event_token
 from joggy.middleware.rate_limit import check_rate_limit
@@ -149,6 +149,15 @@ async def upload_photo(
         except ValueError:
             pass  # ignore malformed timestamp จากกล้อง
 
+    # PDPA ADR-0004: Photo.retention_until = event.end_at + 30d.
+    # ต้อง set ตอน insert ไม่งั้น cron retention.delete_expired_photos จะหารูปไม่เจอ
+    # (`retention_until < now()` ไม่ match NULL → รูปค้างถาวร, PDPA fail)
+    event_row = await db.execute(
+        select(Event.end_at).where(Event.id == claims.event_id)
+    )
+    end_at = event_row.scalar_one()
+    photo_retention_until = end_at + timedelta(days=30)
+
     photo = Photo(
         id=photo_id,
         event_id=claims.event_id,
@@ -158,6 +167,7 @@ async def upload_photo(
         sha256=sha256,
         mime_type=content_type,
         captured_at=captured_dt,
+        retention_until=photo_retention_until,
     )
     db.add(photo)
     await db.flush()  # ได้ photo.id ก่อน commit

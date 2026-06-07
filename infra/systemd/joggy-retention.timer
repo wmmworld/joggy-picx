@@ -1,0 +1,17 @@
+[Unit]
+# Joggy-PicX PDPA Retention Timer — ADR-0004
+# Fires joggy-retention.service every day at midnight ICT (Asia/Bangkok)
+Description=Daily PDPA Retention Cron for Joggy-PicX
+Documentation=https://github.com/wmmworld/joggy-picx/blob/main/docs/adr/0004-pdpa-retention-policy.md
+
+[Timer]
+# Daily at 00:00 ICT (Asia/Bangkok = UTC+7)
+# Use Asia/Bangkok to track DST/timezone changes correctly (Thailand has no DST, but explicit is safer)
+OnCalendar=*-*-* 00:00:00 Asia/Bangkok
+Persistent=true
+# Run the job after boot if missed while system was off (e.g. VPS reboot during the night)
+RandomizedDelaySec=300
+Unit=joggy-retention.service
+
+[Install]
+WantedBy=timers.target

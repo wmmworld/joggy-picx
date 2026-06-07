@@ -1,0 +1,28 @@
+[Unit]
+# Joggy-PicX PDPA Retention Cron — ADR-0004
+# Runs 3 retention tasks: delete_expired_photos / delete_expired_face_embeddings / anonymize_expired_metadata
+# Triggered daily at 17:00 UTC (= 00:00 ICT) by joggy-retention.timer
+Description=Joggy-PicX PDPA Auto-Delete Retention Worker
+Documentation=https://github.com/wmmworld/joggy-picx/blob/main/docs/adr/0004-pdpa-retention-policy.md
+After=network-online.target redis.service postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=joggy
+Group=joggy
+WorkingDirectory=/opt/joggy-picx/apps/backend
+EnvironmentFile=/opt/joggy-picx/apps/backend/.env
+
+# Run all 3 retention tasks; exit code 1 on any task failure
+ExecStart=/opt/joggy-picx/.venv/bin/python -m joggy.worker.retention
+
+# Hard timeout: PDPA deletes for 100k photos should finish well under 30 minutes
+TimeoutStartSec=30m
+
+# stdout/stderr go to systemd journal → check via `journalctl -u joggy-retention`
+StandardOutput=journal
+StandardError=journal
+
+# Restart on failure not appropriate for oneshot — alert instead (see OnFailure=)
+# Add OnFailure=email-alert@%n.service when alerting service is wired up
