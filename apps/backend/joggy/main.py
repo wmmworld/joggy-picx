@@ -112,6 +112,7 @@ app.include_router(public.router, prefix="/v1/public", tags=["public"])
 # ── Health ─────────────────────────────────────────────────────────────────────
 
 @app.get("/health", tags=["health"], include_in_schema=False)
+@app.get("/healthz", tags=["health"], include_in_schema=False)
 async def health() -> dict:
-    """Health check สำหรับ Docker Compose + Watchtower."""
+    """Health check — Docker HEALTHCHECK + nginx /healthz + UptimeRobot all hit this."""
     return {"status": "ok", "env": settings.app_env, "version": "0.1.0"}

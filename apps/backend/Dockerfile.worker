@@ -1,21 +1,41 @@
-# Codex: Dockerfile skeleton สำหรับ Worker container (CPU-only base image)
-FROM python:3.11-slim
+# Joggy-PicX RQ Worker production image — shares deps with FastAPI image
+# Author: Claude (Tech Lead) — Phase 5 production deploy, 2026-06-06
+# Replaces Codex Phase 1 skeleton
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# System deps: same as FastAPI image (ONNX + OpenCV runtime libs).
+# Worker hits the AI pipeline so it needs ALL of these.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgomp1 libgl1 libglib2.0-0 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir uv==0.5.18
 
 WORKDIR /app
 
-# Codex: ใช้ uv สำหรับจัดการ dependencies ให้สอดคล้องกับ backend package
-RUN pip install --no-cache-dir uv
-
-COPY pyproject.toml uv.lock ./
+# ── Dependency layer ─────────────────────────────────────────────────────────
 COPY apps/backend/pyproject.toml apps/backend/pyproject.toml
+COPY apps/backend/README.md apps/backend/README.md
+COPY apps/backend/uv.loc[k] apps/backend/uv.lock* /tmp/_lock_check/
 
-# Codex: sync production dependencies ของ worker side
-RUN uv sync --frozen --package joggy-backend --no-dev || uv sync --package joggy-backend --no-dev
+WORKDIR /app/apps/backend
+RUN uv sync --no-dev --frozen 2>/dev/null || uv sync --no-dev
 
-COPY apps/backend apps/backend
+# ── App layer ────────────────────────────────────────────────────────────────
+WORKDIR /app
+COPY apps/backend /app/apps/backend
 
-# Codex: placeholder command จนกว่า RQ worker entrypoint จะ implement ใน Phase 2
-CMD ["uv", "run", "--package", "joggy-backend", "python", "-c", "print('joggy-worker skeleton ready')"]
+WORKDIR /app/apps/backend
+
+RUN useradd --create-home --shell /bin/bash --uid 1000 joggy && \
+    chown -R joggy:joggy /app
+USER joggy
+
+# RQ worker — listens on the "default" queue, processes one job at a time per
+# process. Spawn more replicas via docker compose `--scale worker=N` if needed.
+CMD ["uv", "run", "rq", "worker", "--with-scheduler", "default"]

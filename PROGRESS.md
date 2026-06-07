@@ -5,7 +5,7 @@
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
 วันที่อัปเดตล่าสุด: 2026-06-06
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — PDPA Auto-Delete Cron ✅ (ADR-0004): 3 retention tasks + systemd timer + 10 TDD tests + backfill migration 0003. Backend 113/113 pass. พร้อม deploy ขึ้น Hetzner
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Production deploy artifacts ✅: Dockerfile (FastAPI + worker), docker-compose.prod.yml, nginx + Let's Encrypt config, bootstrap_vps.sh, production-deploy.md runbook. CEO ยืนยัน Hetzner สมัครแล้ว — พร้อม bootstrap จริง
 
 ---
 
@@ -165,6 +165,17 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-06 (Production Deploy Artifacts ✅ — Hetzner-ready)
+- [Claude] **Production `apps/backend/Dockerfile` + `Dockerfile.worker`** ✅ — แทนที่ Codex Phase 1 skeleton: Python 3.12-slim, system deps (libgomp1 + libgl1 สำหรับ onnxruntime/opencv), uv 0.5.18, non-root user `joggy` (uid 1000), HEALTHCHECK ต่อ `/healthz`, uvicorn 2 workers + proxy-headers, worker รัน `rq worker --with-scheduler default`
+- [Claude] **`/healthz` endpoint alias** ✅ — `main.py`: เพิ่ม `@app.get("/healthz")` ข้าง `/health` เดิม เพราะ Dockerfile HEALTHCHECK + nginx config + UptimeRobot ทั้งหมดใช้ `/healthz` convention. Tests 113/113 pass
+- [Claude] **`infra/docker-compose.prod.yml`** ✅ — overlay file: env_file `../.env.production`, override REDIS_URL ไป in-network, healthchecks, mem limits (fastapi 512M / redis 200M), mount `apps/backend/models/` (ONNX 12 MB gitignored), redis port mapping cleared (production ไม่ expose 6380), volumes สำหรับ Let's Encrypt cert
+- [Claude] **`infra/env.production.template`** ✅ — production secrets template ที่ root block .env.production.example (sandbox protection). Placeholders + setup steps inline + comments อธิบาย Supabase DATABASE_URL format (asyncpg + transaction pooler port 5432)
+- [Claude] **`infra/nginx/conf.d/default.conf` + `ssl-joggy.conf.disabled`** ✅ — แทนที่ skeleton: server :80 (ACME challenge + redirect HTTPS), server :443 wrapped in `include /etc/nginx/conf.d/ssl-*.conf` pattern (กัน nginx crash ตอน bootstrap ก่อนมี cert). HSTS comment ไว้ — turn on หลัง confirm HTTPS. client_max_body_size 30M (match ingest 25M + slack)
+- [Claude] **`tools/deploy/bootstrap_vps.sh`** ✅ — idempotent shell script รัน 1 ครั้งบน VPS ใหม่: apt update, สร้าง `joggy` user (sudo, SSH key copy from root, passwordless sudo), Docker Engine + Compose, ufw (22/80/443), fail2ban, certbot, disable root SSH, mkdir `/opt/joggy-picx`. Next-steps banner ที่จบ script
+- [Claude] **`docs/production-deploy.md`** ✅ — comprehensive runbook แทน hetzner-setup.md เก่า: 10 sections — pre-flight checklist (Hetzner/DNS/Supabase/R2/GitHub), VPS bootstrap, app deploy (Alembic migration + ONNX scp upload), Let's Encrypt SSL (webroot + renewal hook), PDPA retention timer install, full smoke test, day-2 ops, backup/DR, rollback, monitoring TODO list
+- [Claude] **`docs/hetzner-setup.md`** ✅ — replaced with redirect notice → production-deploy.md
+- Backend tests: **113/113 pass** (no regression)
 
 ### 2026-06-06 (PDPA Auto-Delete Cron ✅ — ADR-0004 implementation)
 - [Claude] **`joggy/worker/retention.py`** ✅ — 3 async cron tasks ตาม ADR-0004 rule #1: (1) `_delete_expired_photos_async()` — SELECT Photo WHERE retention_until < now → R2 delete (original + thumbnail) → DB cascade (FaceEmbedding/ReviewQueue/PhotoBib/Photo) + per-photo audit; (2) `_delete_expired_face_embeddings_async()` — SELECT FaceEmbedding WHERE retention_until < now → DELETE + audit (biometric data, no R2); (3) `_anonymize_expired_metadata_async()` — SELECT ConsentRecord WHERE consent_at < now-30d AND external_id IS NOT NULL → set external_id = NULL + audit. Sync wrappers + `run_all_retention_jobs()` CLI entrypoint with `__main__` for systemd.
