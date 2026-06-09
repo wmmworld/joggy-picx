@@ -84,14 +84,24 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # ── CORS — Internal Dashboard Only ────────────────────────────────────────────
-# Phase 4: เพิ่ม Vercel production domain
+# Phase 5 production: dashboard at joggy-picx-gfyz.vercel.app + preview deployments.
+# Vercel preview URLs follow pattern `<project>-<hash>-<team>.vercel.app` — match
+# via regex so preview branches don't need a redeploy of backend each time.
+import re  # noqa: E402
+
 _cors_origins = ["http://localhost:3000"]
+_cors_origin_regex: str | None = None
 if settings.is_production:
-    _cors_origins = []  # TODO Phase 4: เพิ่ม https://joggy-picx.vercel.app
+    _cors_origins = [
+        "https://joggy-picx-gfyz.vercel.app",  # production alias
+    ]
+    # Allow Vercel preview deploys: https://joggy-picx-*-wmmworld.vercel.app
+    _cors_origin_regex = r"^https://joggy-picx(-[a-z0-9]+)*-wmmworld\.vercel\.app$"
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=_cors_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key"],
