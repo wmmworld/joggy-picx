@@ -45,12 +45,21 @@ logger = logging.getLogger(__name__)
 # ── delete_expired_photos ─────────────────────────────────────────────────────
 
 
+def _utcnow_naive() -> datetime:
+    """
+    Return tz-naive UTC datetime — DB columns are TIMESTAMP WITHOUT TIME ZONE
+    (Alembic 0001 initial schema). asyncpg refuses to compare tz-aware values
+    against naive columns. Found by VPS deploy smoke test 2026-06-09.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 async def _delete_expired_photos_async() -> dict[str, int]:
     """
     Find photos where retention_until < now → R2 delete → DB cascade delete.
     Returns {deleted: N, failed: M}.
     """
-    now = datetime.now(timezone.utc)
+    now = _utcnow_naive()
     deleted = 0
     failed = 0
 
@@ -133,7 +142,7 @@ async def _delete_expired_face_embeddings_async() -> dict[str, int]:
     Find face embeddings where retention_until < now → DB delete.
     Biometric data — no R2 (face vectors only live in pgvector).
     """
-    now = datetime.now(timezone.utc)
+    now = _utcnow_naive()
     async with worker_db_session() as db:
         result = await db.execute(
             select(FaceEmbedding).where(FaceEmbedding.retention_until < now)
@@ -170,7 +179,7 @@ async def _anonymize_expired_metadata_async() -> dict[str, int]:
 
     Selection criterion (ADR-0004): consent_at < now - 30d AND external_id IS NOT NULL.
     """
-    now = datetime.now(timezone.utc)
+    now = _utcnow_naive()
     cutoff = now.replace(microsecond=0)
     async with worker_db_session() as db:
         # Find consent records older than 30 days that still have external_id
