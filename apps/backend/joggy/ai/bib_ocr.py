@@ -63,6 +63,17 @@ def _load_vocab(rec_session: ort.InferenceSession) -> str:
             vocab = "".join(line.rstrip("\n") for line in fh if line.rstrip("\n"))
         logger.info("BibOcr: loaded vocab (%d chars) from OCR_VOCAB_PATH=%s",
                     len(vocab), custom)
+
+        # PaddleOCR convention: the rec model is exported with
+        # `use_space_char=True`, which makes the runtime append " " as an
+        # extra char beyond what's in the dict file. So a vocab file with
+        # N lines maps to (N + 1) chars at inference time, plus 1 for CTC
+        # blank → N + 2 output classes. We mirror that here.
+        if n_classes is not None and n_classes == len(vocab) + 2:
+            vocab = vocab + " "
+            logger.info("BibOcr: appended space char per Paddle convention "
+                        "(vocab now %d)", len(vocab))
+
         if n_classes is not None and n_classes != len(vocab) + 1:
             raise ValueError(
                 f"OCR_VOCAB_PATH={custom} has {len(vocab)} chars, but rec "
