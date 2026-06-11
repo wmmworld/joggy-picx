@@ -62,10 +62,22 @@ async def run_pipeline(
     """
     Main pipeline — called from tasks._process_photo_async().
     Returns summary dict. Raises on unrecoverable errors (triggers RQ retry).
+
+    Graceful skip (2026-06-11): any ``sessions.*`` may be None when the
+    corresponding ONNX file is missing. We instantiate AI services only when
+    their sessions are present; downstream code guards each None case.
     """
-    detector = BibDetector(sessions.yolo)
-    ocr = BibOcr(sessions.ocr_det, sessions.ocr_rec)
-    embedder = FaceEmbedder(sessions.face_det, sessions.face_embed)
+    detector = BibDetector(sessions.yolo) if sessions.yolo is not None else None
+    ocr = (
+        BibOcr(sessions.ocr_det, sessions.ocr_rec)
+        if sessions.ocr_det is not None and sessions.ocr_rec is not None
+        else None
+    )
+    embedder = (
+        FaceEmbedder(sessions.face_det, sessions.face_embed)
+        if sessions.face_det is not None and sessions.face_embed is not None
+        else None
+    )
 
     photo_uuid = uuid.UUID(photo_id)
 
@@ -123,27 +135,32 @@ async def run_pipeline(
     #    become PhotoBib rows.  The highest-confidence readable bib is also written
     #    to the deprecated Photo.bib_number_nullable field for backward-compat until
     #    the API layer migrates to joining photo_bibs (ADR-0008 Phase B).
-    all_boxes = detector.detect_all(img_bgr)
+    #
+    #    Graceful skip: if YOLO is unavailable we cannot localize bibs at all;
+    #    if YOLO works but OCR is unavailable we still record empty PhotoBib
+    #    rows for review-queue triage but cannot read digits.
+    all_boxes = detector.detect_all(img_bgr) if detector is not None else []
     bib_results = []
-    for box in all_boxes:
-        result = ocr.read(img_bgr, box)
-        if result is not None:
-            bib_results.append((box, result))
-            db.add(PhotoBib(
-                photo_id=photo_uuid,
-                bib_number=result.number,
-                confidence=result.confidence,
-                bbox_x1=box.x1,
-                bbox_y1=box.y1,
-                bbox_x2=box.x2,
-                bbox_y2=box.y2,
-            ))
+    if ocr is not None:
+        for box in all_boxes:
+            result = ocr.read(img_bgr, box)
+            if result is not None:
+                bib_results.append((box, result))
+                db.add(PhotoBib(
+                    photo_id=photo_uuid,
+                    bib_number=result.number,
+                    confidence=result.confidence,
+                    bbox_x1=box.x1,
+                    bbox_y1=box.y1,
+                    bbox_x2=box.x2,
+                    bbox_y2=box.y2,
+                ))
 
     # Best bib = first readable result (detect_all returns highest YOLO conf first)
     best_bib = bib_results[0][1] if bib_results else None
 
-    # 4. Face embedding
-    face_result = embedder.embed(img_bgr)
+    # 4. Face embedding — skip if face models unavailable
+    face_result = embedder.embed(img_bgr) if embedder is not None else None
 
     # 5. Determine status
     bib_ok = best_bib is not None and best_bib.confidence >= _BIB_CONF_THRESHOLD
@@ -202,7 +219,8 @@ async def run_pipeline(
                 status=ReviewQueueStatus.pending,
             ))
 
-    # 9. AuditLog
+    # 9. AuditLog — include which models were available so degraded runs are
+    #    distinguishable from "real" no-bib results in post-hoc analysis.
     db.add(AuditLog(
         actor_kind=ActorKind.system,
         action="ai_pipeline_complete",
@@ -216,6 +234,11 @@ async def run_pipeline(
             "ai_status": photo.ai_review_status.value,
             "reid_match": reid_matched_bib,
             "face_embedding_id": face_embedding_id,
+            "models_available": {
+                "yolo": detector is not None,
+                "ocr": ocr is not None,
+                "face": embedder is not None,
+            },
         },
     ))
 

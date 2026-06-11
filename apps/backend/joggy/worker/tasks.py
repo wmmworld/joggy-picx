@@ -40,15 +40,20 @@ _sessions: "ModelSessions | None" = None  # type: ignore[assignment]
 
 
 def _get_sessions() -> "ModelSessions":
-    """Return preloaded ONNX sessions — load on first call (worker startup)."""
+    """
+    Return preloaded ONNX sessions — load on first call (worker startup).
+
+    Uses ``load_sessions_lenient()`` so missing ONNX files (OCR/face during
+    Phase 6 incremental rollout) degrade gracefully instead of crashing the
+    worker into an RQ retry loop. pipeline.py guards each session before use.
+    """
     global _sessions
     if _sessions is None:
         import os
-        from joggy.ai.session import load_sessions
+        from joggy.ai.session import load_sessions_lenient
         model_dir = os.environ.get("MODEL_DIR", "models")
-        logger.info("Loading ONNX sessions from %s ...", model_dir)
-        _sessions = load_sessions(model_dir)
-        logger.info("ONNX sessions loaded OK")
+        logger.info("Loading ONNX sessions from %s (lenient mode)...", model_dir)
+        _sessions = load_sessions_lenient(model_dir)
     return _sessions
 
 

@@ -3,12 +3,24 @@ ONNX session loader — preload all AI models at worker startup.
 Claude (Tech Lead) — Phase 3
 
 ⚠️  D-021: onnxruntime ONLY — ห้าม import torch / paddle ในไฟล์นี้
+
+Two loaders:
+  - load_sessions()         — STRICT. Raises FileNotFoundError if any model is
+                              missing. Used by tests + manual sanity-check
+                              scripts that want a hard fail.
+  - load_sessions_lenient() — GRACEFUL. Returns a partial ModelSessions with
+                              None for any missing file + a critical log line.
+                              Used by the production RQ worker so a missing
+                              OCR/face model doesn't crash the whole pipeline
+                              and block photo ingest (Phase 6 — adding models
+                              one at a time post-launch).
 """
 from __future__ import annotations
 
 import logging
 import os
 from dataclasses import dataclass
+from typing import Optional
 
 import onnxruntime as ort
 
@@ -17,12 +29,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class ModelSessions:
-    """ONNX InferenceSession สำหรับ 5 model — ส่งผ่าน constructor ไม่ใช่ global."""
-    yolo: ort.InferenceSession
-    ocr_det: ort.InferenceSession
-    ocr_rec: ort.InferenceSession
-    face_det: ort.InferenceSession
-    face_embed: ort.InferenceSession
+    """
+    ONNX InferenceSession สำหรับ 5 model.
+    Fields เป็น Optional หลัง 2026-06-11 (Phase 6 graceful skip) — pipeline.py
+    ต้อง guard ทุก field ก่อนใช้.
+    """
+    yolo: Optional[ort.InferenceSession]
+    ocr_det: Optional[ort.InferenceSession]
+    ocr_rec: Optional[ort.InferenceSession]
+    face_det: Optional[ort.InferenceSession]
+    face_embed: Optional[ort.InferenceSession]
 
 
 # Logical name -> path components under model_dir.
@@ -36,22 +52,25 @@ _MODEL_PATHS: dict[str, tuple[str, ...]] = {
 }
 
 
+def _resolve_paths(model_dir: str) -> dict[str, str]:
+    return {name: os.path.join(model_dir, *parts) for name, parts in _MODEL_PATHS.items()}
+
+
 def load_sessions(model_dir: str = "models") -> ModelSessions:
     """
-    โหลด ONNX sessions ทั้งหมดตอน worker boot.
-    เรียกครั้งเดียว — เก็บเป็น module-level singleton ใน tasks.py.
+    STRICT loader — fail-fast ที่ startup ถ้าไฟล์ขาด.
 
-    Pre-checks file existence first so the worker fails fast at startup
-    with a clear, actionable error message instead of the cryptic
-    ``[ONNXRuntimeError] : 3 : NO_SUCHFILE`` from onnxruntime.
+    ใช้สำหรับ:
+      - tests (assert error messages)
+      - tools/train/test_holdout.py (dev sanity check)
+
+    Production worker ใช้ ``load_sessions_lenient()`` แทน.
     """
     missing: list[str] = []
-    resolved: dict[str, str] = {}
-    for name, parts in _MODEL_PATHS.items():
-        full = os.path.join(model_dir, *parts)
-        if not os.path.isfile(full):
-            missing.append(full)
-        resolved[name] = full
+    resolved = _resolve_paths(model_dir)
+    for path in resolved.values():
+        if not os.path.isfile(path):
+            missing.append(path)
 
     if missing:
         bullet_list = "\n  - ".join(missing)
@@ -68,3 +87,52 @@ def load_sessions(model_dir: str = "models") -> ModelSessions:
         for name, path in resolved.items()
     }
     return ModelSessions(**sessions)
+
+
+def load_sessions_lenient(model_dir: str = "models") -> ModelSessions:
+    """
+    GRACEFUL loader — return ModelSessions with None for any missing file.
+    Logs CRITICAL for every missing model so operators see it in journalctl.
+
+    Pipeline guards each session before use; missing models translate to
+    "skipped step" (no bib detection / no face embedding / etc.) rather
+    than worker crash + RQ retry loop.
+
+    This is the production default since 2026-06-11 — Joggy-PicX deploy
+    started with only yolov8n_bib.onnx committed; OCR + face models are
+    added incrementally without bringing the worker down.
+    """
+    resolved = _resolve_paths(model_dir)
+    loaded: dict[str, Optional[ort.InferenceSession]] = {}
+    missing: list[str] = []
+
+    for name, path in resolved.items():
+        if not os.path.isfile(path):
+            missing.append(path)
+            loaded[name] = None
+            continue
+        try:
+            loaded[name] = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+        except Exception as exc:  # noqa: BLE001 — onnxruntime raises broad
+            logger.critical(
+                "Failed to load ONNX session %s from %s — running pipeline "
+                "without it: %s",
+                name, path, exc,
+            )
+            loaded[name] = None
+
+    if missing:
+        bullet_list = "\n  - ".join(missing)
+        logger.critical(
+            "AI pipeline running in DEGRADED mode — %d ONNX model(s) missing "
+            "under %r:\n  - %s\n\nAffected steps will be skipped. See "
+            "apps/backend/models/README.md to populate.",
+            len(missing), model_dir, bullet_list,
+        )
+
+    loaded_count = sum(1 for v in loaded.values() if v is not None)
+    logger.info(
+        "Loaded %d/%d ONNX sessions from %s (lenient mode)",
+        loaded_count, len(resolved), model_dir,
+    )
+    return ModelSessions(**loaded)
