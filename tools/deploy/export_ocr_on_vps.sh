@@ -32,19 +32,27 @@ echo "[ocr-export] Downloading en_dict.txt (vocab)..."
 curl -fsSL "$EN_DICT_URL" -o "$WORK_DIR/en_dict.txt"
 wc -l "$WORK_DIR/en_dict.txt"
 
+echo "[ocr-export] Downloading rec model tar on host (Docker network has DNS quirks)..."
+curl -fsSL "$REC_TAR_URL" -o "$WORK_DIR/rec.tar"
+echo "[ocr-export] Downloading det model tar on host..."
+curl -fsSL "$DET_TAR_URL" -o "$WORK_DIR/det.tar"
+ls -lh "$WORK_DIR"
+
 echo "[ocr-export] Pulling paddlepaddle image (one-shot)..."
 docker pull "$PADDLE_IMAGE"
 
-echo "[ocr-export] Running export inside container..."
+echo "[ocr-export] Running export inside container (network kept for pip)..."
+# Use --dns 8.8.8.8 because the paddlepaddle image's resolv.conf occasionally
+# resolves bcebos.com to wrong AS path — but we've already downloaded the
+# tars on the host, so pip is the only thing that needs network here.
 docker run --rm \
+  --dns 8.8.8.8 \
   -v "$WORK_DIR:/work" \
   -w /work \
   "$PADDLE_IMAGE" \
   bash -c "
     set -e
     pip install --quiet paddle2onnx==1.2.6
-    curl -fsSL '$REC_TAR_URL' -o rec.tar
-    curl -fsSL '$DET_TAR_URL' -o det.tar
     tar -xf rec.tar
     tar -xf det.tar
     paddle2onnx \\
