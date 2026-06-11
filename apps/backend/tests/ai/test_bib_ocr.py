@@ -88,8 +88,8 @@ def test_ctc_collapse_consecutive_duplicates():
 
 def test_ctc_decode_raises_on_wrong_shape():
     """Wrong vocab size should fail loudly, not silently corrupt."""
-    # 1, T=2, C=20 — wrong! Should be 11
+    # 1, T=2, C=20 — wrong! Should be 11 in the legacy digit-only fallback.
     logits = np.zeros((1, 2, 20), dtype=np.float32)
     logits[0, 0, 1] = 0.9
-    with pytest.raises(ValueError, match="digit-only model"):
+    with pytest.raises(ValueError, match="vocab mismatch"):
         BibOcr(MagicMock(), _rec_session(logits)).read(_make_img(), _make_bbox())
