@@ -4,8 +4,8 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-06-06
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — Production deploy artifacts ✅: Dockerfile (FastAPI + worker), docker-compose.prod.yml, nginx + Let's Encrypt config, bootstrap_vps.sh, production-deploy.md runbook. CEO ยืนยัน Hetzner สมัครแล้ว — พร้อม bootstrap จริง
+วันที่อัปเดตล่าสุด: 2026-06-11
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — 🎉 **PRODUCTION LIVE!** Hetzner CPX11 + Let's Encrypt + Vercel dashboard + Pi → picx.joggyrun.com ใช้งานจริง. E2E photo path สำเร็จ (Pi capture → upload → R2 → DB → dashboard preview). AI worker pending — ขาด OCR + face ONNX models (Backlog Phase 6). Overall progress ~75%.
 
 ---
 
@@ -165,6 +165,21 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-09 → 2026-06-11 (🚀 PRODUCTION LIVE — E2E photo path สำเร็จ)
+- [Claude + CEO] **Hetzner CPX11 + bootstrap** ✅ — Helsinki (เลือก eu-central เพราะ Singapore ไม่มี $4.99 tier), Ubuntu 24.04. รัน `bootstrap_vps.sh` ตัวเดียวจบ — joggy user, Docker, ufw (22/80/443), fail2ban, certbot, disable root SSH, `/opt/joggy-picx`. Repo public ชั่วคราวเพื่อ curl bootstrap script (กลับ private ภายหลัง)
+- [Claude + CEO] **Production stack up** ✅ — `docker compose up` build images ครั้งแรก ~5 นาที. 4/5 services healthy (watchtower minor restart loop ที่ไม่ critical จาก `~/.docker/config.json` bug — ข้าม). nginx + fastapi + worker + redis ทำงาน
+- [Claude + CEO] **Let's Encrypt HTTPS** ✅ — Domain `picx.joggyrun.com` (subdomain of joggyrun.com), certbot webroot mode สำเร็จครั้งแรก, cert valid ถึง 2026-09-07, auto-renew ตั้งแล้ว. Activate ssl-joggy.conf + restart nginx → HTTPS ทำงาน
+- [Claude + CEO] **Frontend deploy Vercel** ✅ — `joggy-picx-gfyz.vercel.app`. ปัญหา 2 อย่าง: (1) Vercel auto-detect framework เป็น Python (เพราะ apps/backend อยู่ root), ต้องเปลี่ยน Framework Preset → Next.js + Root Directory → `apps/frontend`; (2) deploy แรก build cache ทำให้ Root Directory ไม่ apply ต้อง redeploy without cache. Env vars 4 ตัว (Supabase + R2 + NEXT_PUBLIC_API_URL=picx.joggyrun.com)
+- [Claude + CEO] **PDPA Retention Cron deployed** ✅ — systemd timer install สำเร็จ. Run manual ครั้งแรก fail (tz bug), แก้แล้ว summary = `{photos: 0, face: 0, metadata: 0}`. Daily 00:00 ICT ทำงานอัตโนมัติ
+- [Claude + CEO] **Pi → Production E2E success** 🎉 — Pi update `.env`: INGEST_URL=`https://picx.joggyrun.com/ingest/photos` (full path) + EVENT_TOKEN เดิมใช้ได้ (Supabase DB เดียวกัน). ถ่ายรูปจริงจาก Canon EOS RP → upload HTTP 202 → DB row + R2 object → ขึ้น Dashboard (preview thumbnail). **Photo path E2E ผ่าน!**
+- [Claude] **🐛 4 bugs found + fixed by production smoke test:**
+  - **`98e65fa` fix(worker/retention): tz-aware vs naive datetime** — DB columns เป็น `TIMESTAMP WITHOUT TIME ZONE` แต่ `datetime.now(timezone.utc)` ส่ง tz-aware → asyncpg refuse. Strip tzinfo ก่อน SQL
+  - **`536993f` fix(api): CORS allow-list ว่างใน production** — เพิ่ม `joggy-picx-gfyz.vercel.app` + regex สำหรับ preview deploys (`-[a-z0-9]+-wmmworld.vercel.app`)
+  - **`5b3f895` fix(nginx): upstream IP cache → 502 หลัง rebuild** — nginx cache `172.18.0.5` ตอน boot, fastapi rebuild ได้ IP ใหม่ → 502 "Host is unreachable". แก้: `resolver 127.0.0.11 valid=10s` + `set $var` indirection บังคับ re-resolve ทุก request
+  - **`859d6fa` fix(ingest): tz-aware end_at + timedelta → tz-aware retention_until** — Cursor frontend ส่ง event ISO timestamp กับ `Z` → DB column tz-naive แต่ Python กลับเป็น tz-aware → asyncpg DataError. Strip ก่อน INSERT (เหมือน 98e65fa)
+- [Claude] **Lesson: mock-only tests pass ทุก case แต่ production fail หมด** — `test_retention` + `test_ingest` ใช้ MagicMock → ไม่จับ driver-level type contract bugs. Next step: integration test ที่ใช้ Postgres จริง (testcontainers) — backlog
+- [Claude + CEO] **AI worker pending** ⏳ — `joggy.ai.session.load_sessions()` raise FileNotFoundError เพราะขาด 4 ONNX files: `ocr_det.onnx`, `ocr_rec.onnx`, `buffalo_s/det_10g.onnx`, `buffalo_s/w600k_r50.onnx`. ตัดสินใจ: ปล่อย worker fail loop ไว้ก่อน (รูปยังขึ้น dashboard ปกติ เพราะ ingest path แยกจาก AI pipeline) — เพิ่ม models ใน Phase 6 follow-up
 
 ### 2026-06-06 (Production Deploy Artifacts ✅ — Hetzner-ready)
 - [Claude] **Production `apps/backend/Dockerfile` + `Dockerfile.worker`** ✅ — แทนที่ Codex Phase 1 skeleton: Python 3.12-slim, system deps (libgomp1 + libgl1 สำหรับ onnxruntime/opencv), uv 0.5.18, non-root user `joggy` (uid 1000), HEALTHCHECK ต่อ `/healthz`, uvicorn 2 workers + proxy-headers, worker รัน `rq worker --with-scheduler default`
