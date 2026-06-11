@@ -23,14 +23,22 @@ WORK_DIR=$(mktemp -d -t joggy-ocr-XXXXXXXX)
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 PADDLE_IMAGE="paddlepaddle/paddle:3.0.0"
-REC_TAR_URL="https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_rec_infer.tar"
-DET_TAR_URL="https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_det_infer.tar"
-EN_DICT_URL="https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils/en_dict.txt"
+# As of 2026-06-11 the EN det tar returns 404 from the BCE bucket while
+# the CN det tar is fine. The CN vocab (6625 chars) is filtered down to
+# digits in bib_ocr.py anyway, so accuracy on bib numbers is unaffected.
+# If the EN tar comes back, you can swap REC_TAR_URL + DICT_URL and the
+# rest of the pipeline keeps working.
+REC_TAR_URL="https://paddleocr.bj.bcebos.com/PP-OCRv4/chinese/ch_PP-OCRv4_rec_infer.tar"
+DET_TAR_URL="https://paddleocr.bj.bcebos.com/PP-OCRv4/chinese/ch_PP-OCRv4_det_infer.tar"
+REC_DIR_NAME="ch_PP-OCRv4_rec_infer"
+DET_DIR_NAME="ch_PP-OCRv4_det_infer"
+DICT_URL="https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils/ppocr_keys_v1.txt"
+DICT_FILE="ppocr_keys_v1.txt"
 
 echo "[ocr-export] Working in $WORK_DIR"
-echo "[ocr-export] Downloading en_dict.txt (vocab)..."
-curl -fsSL "$EN_DICT_URL" -o "$WORK_DIR/en_dict.txt"
-wc -l "$WORK_DIR/en_dict.txt"
+echo "[ocr-export] Downloading $DICT_FILE (vocab)..."
+curl -fsSL "$DICT_URL" -o "$WORK_DIR/$DICT_FILE"
+wc -l "$WORK_DIR/$DICT_FILE"
 
 echo "[ocr-export] Downloading rec model tar on host (Docker network has DNS quirks)..."
 curl -fsSL "$REC_TAR_URL" -o "$WORK_DIR/rec.tar"
@@ -56,14 +64,14 @@ docker run --rm \
     tar -xf rec.tar
     tar -xf det.tar
     paddle2onnx \\
-      --model_dir en_PP-OCRv4_rec_infer \\
+      --model_dir $REC_DIR_NAME \\
       --model_filename inference.pdmodel \\
       --params_filename inference.pdiparams \\
       --save_file ocr_rec.onnx \\
       --opset_version 11 \\
       --enable_onnx_checker True
     paddle2onnx \\
-      --model_dir en_PP-OCRv4_det_infer \\
+      --model_dir $DET_DIR_NAME \\
       --model_filename inference.pdmodel \\
       --params_filename inference.pdiparams \\
       --save_file ocr_det.onnx \\
@@ -78,21 +86,21 @@ sudo install -m 644 -o joggy -g joggy \
 sudo install -m 644 -o joggy -g joggy \
   "$WORK_DIR/ocr_det.onnx" "$MODELS_DIR/ocr_det.onnx"
 sudo install -m 644 -o joggy -g joggy \
-  "$WORK_DIR/en_dict.txt" "$MODELS_DIR/en_dict.txt"
+  "$WORK_DIR/$DICT_FILE" "$MODELS_DIR/$DICT_FILE"
 
-ls -lh "$MODELS_DIR/ocr_rec.onnx" "$MODELS_DIR/ocr_det.onnx" "$MODELS_DIR/en_dict.txt"
+ls -lh "$MODELS_DIR/ocr_rec.onnx" "$MODELS_DIR/ocr_det.onnx" "$MODELS_DIR/$DICT_FILE"
 
-cat <<'NEXT'
+cat <<NEXT
 
 [ocr-export] Done!
 
 Next steps:
   1. Set OCR_VOCAB_PATH in the worker environment so bib_ocr.py can decode
      the rec output. Edit /opt/joggy-picx/.env.production and add:
-       OCR_VOCAB_PATH=/app/apps/backend/models/en_dict.txt
+       OCR_VOCAB_PATH=/app/apps/backend/models/$DICT_FILE
   2. Rebuild + restart the worker so it picks up the new vocab + models:
        cd /opt/joggy-picx/infra
-       docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+       docker compose -f docker-compose.yml -f docker-compose.prod.yml \\
                       up -d --build worker
   3. Take one photo from the Pi and watch the worker log — you should see
      "Loaded 5/5 ONNX sessions" and a real bib_number on the dashboard.
