@@ -22,6 +22,10 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 
 ## [Unreleased]
 
+### AI Worker Live — 2026-06-11 (evening) 🤖
+- **Worker now processes Photos end-to-end in production**. With `yolov8n_bib.onnx` + `buffalo_s/det_10g.onnx` + `buffalo_s/w600k_r50.onnx` uploaded on the VPS, the RQ worker loads 3/5 sessions, runs bib detection + face detection + face embedding, writes FaceEmbedding rows for cross-checkpoint Re-ID, and inserts photos into the review queue. Median pipeline latency ~14s/photo on CPX11. OCR (digit reading) is deferred — Re-ID through face vectors is sufficient for MVP because runners can be matched across checkpoints by face even when their bib digits aren't read.
+- **buffalo_s small variant** in use (det_500m.onnx + w600k_mbf.onnx, renamed to det_10g/w600k_r50 to match _MODEL_PATHS). About 10% lower accuracy than buffalo_l but ~5× faster and smaller — acceptable for race day, can be swapped later.
+
 ### Production Milestone — 2026-06-11 🎉
 - **PRODUCTION LIVE** — Joggy-PicX serving real traffic at https://picx.joggyrun.com (Hetzner CPX11 Helsinki, Let's Encrypt HTTPS) and https://joggy-picx-gfyz.vercel.app (Vercel dashboard). E2E photo path verified end-to-end with Canon EOS RP → Pi 5 → VPS ingest → Cloudflare R2 → Supabase DB → dashboard preview. Photo flow returns HTTP 202 in <2s, dashboard loads photo within 5s of capture.
 - **AI pipeline gated** — worker requires 4 ONNX models (ocr_det, ocr_rec, buffalo_s/det_10g, buffalo_s/w600k_r50) that are not committed to git. Worker fails fast at startup with a clear error listing the missing files. Photos still ingest and display correctly; bib detection stays as "ไม่พบ" until the models are uploaded (Phase 6 follow-up).

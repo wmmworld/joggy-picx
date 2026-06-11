@@ -4,8 +4,8 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-06-11
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — 🎉 **PRODUCTION LIVE!** Hetzner CPX11 + Let's Encrypt + Vercel dashboard + Pi → picx.joggyrun.com ใช้งานจริง. E2E photo path สำเร็จ (Pi capture → upload → R2 → DB → dashboard preview). AI worker pending — ขาด OCR + face ONNX models (Backlog Phase 6). Overall progress ~75%.
+วันที่อัปเดตล่าสุด: 2026-06-11 (ค่ำ)
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — 🎉 **AI Worker LIVE!** Pi → ingest → worker process รูปสำเร็จ 14s/รูป. Pipeline ทำงาน 3/5 ONNX sessions: yolo (bib detect) + face_det + face_embed (cross-checkpoint Re-ID). OCR (digit reading) ยัง deferred — Re-ID ผ่าน face vector ก็เพียงพอ MVP. Overall progress ~85%.
 
 ---
 
@@ -165,6 +165,14 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-11 (ค่ำ — AI Worker LIVE 🤖 + 2 production bugs fixed)
+- [Claude] **`feat(ai): graceful skip when ONNX models are missing`** (commit `89eb232`) — ปัญหา: หลัง deploy worker crash loop เพราะขาด 4 ONNX models (ocr_det, ocr_rec, buffalo_s/det_10g, buffalo_s/w600k_r50). แก้: เพิ่ม `load_sessions_lenient()` + Optional fields ใน ModelSessions + guard ทุก step ใน pipeline (detector, ocr, embedder). Production worker boot สำเร็จด้วย "yolo only" + log CRITICAL DEGRADED mode. 3 tests ใหม่ (test_session 5→8). AuditLog เพิ่ม `models_available` dict
+- [Claude + CEO] **Upload buffalo_s face models** ✅ — download InsightFace `buffalo_s.zip` → 50 MB, extract → ได้ `det_500m.onnx` + `w600k_mbf.onnx` (small variant). Rename → `det_10g.onnx` + `w600k_r50.onnx` (เพื่อตรงกับ _MODEL_PATHS ใน session.py). scp ขึ้น VPS `/opt/joggy-picx/apps/backend/models/buffalo_s/`. Restart worker → load 3/5 sessions. Note: accuracy ต่ำกว่า buffalo_l (~10%) แต่ใช้ disk + RAM น้อยกว่ามาก
+- [Claude] **🐛 Bug fix 1: `fix(db): map ReviewQueue.decision_bib to decision_bib_nullable`** (commit `f9b53b7`) — initial migration ตั้งชื่อ column ว่า `decision_bib_nullable` (nullable convention) แต่ SQLModel attribute ชื่อ `decision_bib` → asyncpg UndefinedColumnError ตอน worker query review_queue. แก้: bind sa_column="decision_bib_nullable" (pattern เดียวกับ AuditLog.target_id). Tests pass แต่ไม่ catch เพราะใช้ MagicMock
+- [Claude] **🐛 Bug fix 2: `fix(pipeline): strip tzinfo from FaceEmbedding.retention_until`** (commit `f965831`) — pipeline.py มี defensive code แต่ทำกลับด้าน (`if naive → add tz` แทน `if aware → strip tz`) → tz-aware retention_until → asyncpg DataError ตอน INSERT FaceEmbedding row. แก้: strip tz convention เดียวกับ ingest.py (commit 859d6fa) + retention.py (commit 98e65fa). ✅ **บัก tz เดียวกันเกิด 3 ครั้งใน 3 ไฟล์** → backlog: integration test against real Postgres เพื่อจับ driver-level contract
+- [Claude + CEO] **Worker process รูปสำเร็จ E2E** 🎉 — Pi ถ่าย → ingest 202 → worker `process_photo` → 14.28s/รูป → bib bbox + face embedding insert + audit log + review_queue. Dashboard เห็นรูป (43 รูป) + badge "✅ AI" + status "ไม่พบ" (เพราะไม่มี OCR — รอ Re-ID จับคู่)
+- [Claude] **OCR deferred (ตัดสินใจ 2026-06-11)** — bib_ocr.py expect digit-only model (11 classes) ที่ต้อง export ผ่าน paddle (~30-45 นาที + 2 GB install). Re-ID ผ่าน face vector ก็เพียงพอสำหรับ MVP. Note ใน backlog: รอ install paddle + run `tools/export/export_ocr.py` ก่อนสนามจริงรอบหน้า
 
 ### 2026-06-09 → 2026-06-11 (🚀 PRODUCTION LIVE — E2E photo path สำเร็จ)
 - [Claude + CEO] **Hetzner CPX11 + bootstrap** ✅ — Helsinki (เลือก eu-central เพราะ Singapore ไม่มี $4.99 tier), Ubuntu 24.04. รัน `bootstrap_vps.sh` ตัวเดียวจบ — joggy user, Docker, ufw (22/80/443), fail2ban, certbot, disable root SSH, `/opt/joggy-picx`. Repo public ชั่วคราวเพื่อ curl bootstrap script (กลับ private ภายหลัง)
