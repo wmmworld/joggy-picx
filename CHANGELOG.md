@@ -22,6 +22,16 @@ Versioning: Semantic Versioning ([semver.org](https://semver.org))
 
 ## [Unreleased]
 
+### OCR Live — 2026-06-11 (night) 🎯
+- **Bib digit OCR now reads numbers end-to-end in production.** First successful test photo returned bib_number = "30" at confidence 1.0. Pipeline now loads all 5 ONNX sessions (yolo + 2 OCR + 2 face) and writes PhotoBib rows with bib digits, confidence, and bbox.
+- **PP-OCRv4 Chinese model + Python-side digit filter.** Tried English first (en_PP-OCRv4_*) but the EN det tar returns 404 from the BCE bucket — switched to ch_PP-OCRv4_* (6624 chars Chinese vocab). bib_ocr.py filters non-digit characters at decode time so bib accuracy is unaffected by the vocab swap.
+- **One-shot Docker export script** (`tools/deploy/export_ocr_on_vps.sh`) — runs paddlepaddle:3.0.0 in a throwaway container on the VPS, downloads model tars from BCE on the host (Docker DNS quirk), runs paddle2onnx, and installs the ONNX files into `/opt/joggy-picx/apps/backend/models/` alongside the vocab dict.
+- **Three commits fixing OCR enablement** along the way:
+  - `bfcd6dc` feat(ai): generic vocab + Docker export
+  - `95ccc3b` fix(ocr-export): host download (BCE 404 inside container)
+  - `7e3aedc` fix(ocr-export): EN det 404 → switch to CN models
+  - `7a8465b` fix(ocr): Paddle use_space_char convention (vocab + 1 space)
+
 ### AI Worker Live — 2026-06-11 (evening) 🤖
 - **Worker now processes Photos end-to-end in production**. With `yolov8n_bib.onnx` + `buffalo_s/det_10g.onnx` + `buffalo_s/w600k_r50.onnx` uploaded on the VPS, the RQ worker loads 3/5 sessions, runs bib detection + face detection + face embedding, writes FaceEmbedding rows for cross-checkpoint Re-ID, and inserts photos into the review queue. Median pipeline latency ~14s/photo on CPX11. OCR (digit reading) is deferred — Re-ID through face vectors is sufficient for MVP because runners can be matched across checkpoints by face even when their bib digits aren't read.
 - **buffalo_s small variant** in use (det_500m.onnx + w600k_mbf.onnx, renamed to det_10g/w600k_r50 to match _MODEL_PATHS). About 10% lower accuracy than buffalo_l but ~5× faster and smaller — acceptable for race day, can be swapped later.

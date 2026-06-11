@@ -4,8 +4,8 @@
 > ทุก AI ต้องอ่านก่อนเริ่มงาน + อัปเดตทันทีหลังเสร็จ
 > Format นี้ออกแบบให้ AI ทุกตัวอ่านแล้วทำงานต่อได้ในหนเดียว
 
-วันที่อัปเดตล่าสุด: 2026-06-11 (ค่ำ)
-ผู้อัปเดตล่าสุด: Claude (Tech Lead) — 🎉 **AI Worker LIVE!** Pi → ingest → worker process รูปสำเร็จ 14s/รูป. Pipeline ทำงาน 3/5 ONNX sessions: yolo (bib detect) + face_det + face_embed (cross-checkpoint Re-ID). OCR (digit reading) ยัง deferred — Re-ID ผ่าน face vector ก็เพียงพอ MVP. Overall progress ~85%.
+วันที่อัปเดตล่าสุด: 2026-06-11 (ดึก)
+ผู้อัปเดตล่าสุด: Claude (Tech Lead) — 🎯 **OCR LIVE — 5/5 ONNX sessions!** Bib detection + OCR ทำงานจริง bib "30" detected at 100% confidence. ใช้ PP-OCRv4 CN model + filter digit-only ใน Python. Re-enqueue 127 รูปเก่า. Overall progress ~92%.
 
 ---
 
@@ -165,6 +165,15 @@ _(ตอนนี้ว่าง — ไม่มี handoff ค้าง)_
 ---
 
 ## ✅ Done Log (เรียงจากใหม่ → เก่า)
+
+### 2026-06-11 (ดึก — 🎯 OCR LIVE — 5/5 ONNX sessions complete)
+- [Claude] **`feat(ai): generic OCR vocab + Docker export recipe`** (commit `bfcd6dc`) — แก้ bib_ocr.py ให้รับ vocab ใดๆ ผ่าน `OCR_VOCAB_PATH` env var แล้ว filter digit หลัง CTC decode. Backward compat กับ legacy 11-class digit-only via MagicMock fallback in tests.
+- [Claude] **`tools/deploy/export_ocr_on_vps.sh`** — one-shot script ที่รัน `paddlepaddle:3.0.0` Docker container บน VPS export PP-OCRv4 ONNX → คัดไป `/opt/joggy-picx/apps/backend/models/`. ใช้แทน install paddle ใน Windows laptop (2 GB disk + wheel ปัญหา).
+- [Claude] **🐛 Bug fix 1: `fix(ocr-export): host download` (commit `95ccc3b`)** — paddlepaddle container DNS resolve bcebos.com → 404 (BCE bucket อาจมี IP filter หรือ AS-path issue). แก้: download tar บน host, mount เข้า container เป็น volume.
+- [Claude] **🐛 Bug fix 2: `fix(ocr-export): EN det 404, switch to CN` (commit `7e3aedc`)** — `en_PP-OCRv4_det_infer.tar` 404 จาก BCE bucket (อาจ temp). Switch เป็น `ch_PP-OCRv4_*` (Chinese 6624 chars). bib_ocr.py filter digits → accuracy on bibs unaffected.
+- [Claude] **🐛 Bug fix 3: `fix(ocr): Paddle use_space_char convention` (commit `7a8465b`)** — PaddleOCR runtime auto-append space ใน vocab when `use_space_char=True` (default for both EN/CN models). ดังนั้น file 6623 chars → runtime vocab 6624 → output 6625 classes. Code ผมตรวจ N+1 ≠ 6625 → ValueError → fallback. แก้: ถ้า `n_classes == len(vocab) + 2` → append " " before equality check.
+- [Claude + CEO] **OCR detect "30" at 100% confidence** 🎉 — รูป test แรกหลัง fix ทั้ง 3 → bib_number "30" + confidence 1.0. PP-OCRv4 ทำงานครบ pipeline + filter digit-only ใน Python decode.
+- [Claude + CEO] **Re-enqueue 127 รูปเก่า** — รูปทั้งหมดที่ `bib_number_nullable=NULL` (รวม Stress Test events ที่ run ก่อนมี OCR) → enqueue process_photo. ~25 นาที processing time. ทุกรูปที่มีบิบจริงจะถูกอ่านได้
 
 ### 2026-06-11 (ค่ำ — AI Worker LIVE 🤖 + 2 production bugs fixed)
 - [Claude] **`feat(ai): graceful skip when ONNX models are missing`** (commit `89eb232`) — ปัญหา: หลัง deploy worker crash loop เพราะขาด 4 ONNX models (ocr_det, ocr_rec, buffalo_s/det_10g, buffalo_s/w600k_r50). แก้: เพิ่ม `load_sessions_lenient()` + Optional fields ใน ModelSessions + guard ทุก step ใน pipeline (detector, ocr, embedder). Production worker boot สำเร็จด้วย "yolo only" + log CRITICAL DEGRADED mode. 3 tests ใหม่ (test_session 5→8). AuditLog เพิ่ม `models_available` dict
