@@ -157,6 +157,12 @@ async def upload_photo(
     )
     end_at = event_row.scalar_one()
     photo_retention_until = end_at + timedelta(days=30)
+    # DB column is TIMESTAMP WITHOUT TIME ZONE — strip tzinfo to match.
+    # Dashboard-created events store end_at as tz-aware (Cursor frontend
+    # sends ISO with `Z`), so the +30d arithmetic preserves tzinfo and
+    # asyncpg refuses the INSERT. Found by Pi smoke test 2026-06-11.
+    if photo_retention_until.tzinfo is not None:
+        photo_retention_until = photo_retention_until.astimezone(timezone.utc).replace(tzinfo=None)
 
     photo = Photo(
         id=photo_id,
