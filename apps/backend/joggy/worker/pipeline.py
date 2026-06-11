@@ -142,8 +142,27 @@ async def run_pipeline(
     all_boxes = detector.detect_all(img_bgr) if detector is not None else []
     bib_results = []
     if ocr is not None:
+        h_img, w_img = img_bgr.shape[:2]
         for box in all_boxes:
-            result = ocr.read(img_bgr, box)
+            # YOLO bib_detector occasionally crops too tightly along the
+            # number-strip edges (verified 2026-06-11: bib "4123" was
+            # cropped down to only "30" → OCR happily reported "30" at
+            # 1.00 confidence). Pad the bbox 20% in every direction
+            # before passing to OCR so the full digit strip is included.
+            # The PhotoBib row keeps the original (un-padded) bbox so the
+            # frontend bounding-box overlay still highlights what YOLO
+            # actually found.
+            from joggy.ai.bib_detector import BibBox  # local to avoid import cycle
+            pad_x = int((box.x2 - box.x1) * 0.20)
+            pad_y = int((box.y2 - box.y1) * 0.20)
+            padded = BibBox(
+                x1=max(0, box.x1 - pad_x),
+                y1=max(0, box.y1 - pad_y),
+                x2=min(w_img, box.x2 + pad_x),
+                y2=min(h_img, box.y2 + pad_y),
+                confidence=box.confidence,
+            )
+            result = ocr.read(img_bgr, padded)
             if result is not None:
                 bib_results.append((box, result))
                 db.add(PhotoBib(
