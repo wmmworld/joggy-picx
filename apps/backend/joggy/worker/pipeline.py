@@ -175,9 +175,14 @@ async def run_pipeline(
     # 6. INSERT FaceEmbedding
     face_embedding_id: str | None = None
     if face_result is not None:
+        # face_embeddings.retention_until column is TIMESTAMP WITHOUT TIME ZONE.
+        # Cursor dashboard stores Event.end_at as tz-aware (ISO with `Z`), so
+        # we strip tzinfo (convert to UTC first) before the arithmetic to
+        # avoid asyncpg DataError. Mirrors the fix in api/ingest.py.
+        # Found in production worker after face models were uploaded 2026-06-11.
         end_at = event.end_at
-        if end_at.tzinfo is None:
-            end_at = end_at.replace(tzinfo=timezone.utc)
+        if end_at.tzinfo is not None:
+            end_at = end_at.astimezone(timezone.utc).replace(tzinfo=None)
         retention_until = end_at + timedelta(days=7)
         fe = FaceEmbedding(
             photo_id=photo_uuid,
