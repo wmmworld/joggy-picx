@@ -257,7 +257,14 @@ class ReviewQueue(SQLModel, table=True):
     assigned_to: Optional[uuid.UUID] = Field(
         default=None, foreign_key="app_users.id"
     )
-    decision_bib: Optional[str] = None  # human override
+    # Claude: DB column is `decision_bib_nullable` (initial migration); expose
+    # as `decision_bib` in Python so call sites stay readable.  Found in prod
+    # 2026-06-11 — SQLModel default mapping used the Python name and asyncpg
+    # returned UndefinedColumnError during pipeline review_queue lookup.
+    decision_bib: Optional[str] = Field(
+        default=None,
+        sa_column=Column("decision_bib_nullable", Text(), nullable=True),
+    )
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     resolved_at: Optional[datetime] = None
